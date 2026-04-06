@@ -6275,37 +6275,46 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             }
         }
 
-        // 同步任务到云端（单条记录）
+        // 同步任务到云端
         async function syncTasksToCloud() {
             const url = localStorage.getItem('supabaseUrl');
             if (!url) return;
+            
             const userId = getUserId();
-            const allTasks = { '学习': tasks['学习'] || [], '工作': tasks['工作'] || [], '家务': tasks['家务'] || [], '充电': tasks['充电'] || [] };
-            const existing = await supabaseRequest('tasks', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
-            if (existing && existing.length > 0) {
-                await supabaseRequest('tasks', 'PATCH', { data: allTasks, updated_at: new Date().toISOString() }, `?user_id=eq.${encodeURIComponent(userId)}`);
-            } else {
-                await supabaseRequest('tasks', 'POST', { user_id: userId, data: allTasks });
+            const labels = ['学习', '工作', '家务', '充电'];
+            
+            for (const label of labels) {
+                const taskData = tasks[label] || [];
+                const existing = await supabaseRequest('tasks', 'GET', null, 
+                    `?user_id=eq.${encodeURIComponent(userId)}&label=eq.${encodeURIComponent(label)}`);
+                
+                if (existing && existing.length > 0) {
+                    await supabaseRequest('tasks', 'PATCH', { data: taskData },
+                        `?user_id=eq.${encodeURIComponent(userId)}&label=eq.${encodeURIComponent(label)}`);
+                } else {
+                    await supabaseRequest('tasks', 'POST', { user_id: userId, label: label, data: taskData });
+                }
             }
-            showSyncStatus('已同步');
+            showSyncStatus('已同步 ✓');
         }
 
         // 从云端拉取任务
         async function pullTasksFromCloud() {
             const url = localStorage.getItem('supabaseUrl');
             if (!url) return;
+            
             const userId = getUserId();
             const result = await supabaseRequest('tasks', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
-            if (result && result.length > 0 && result[0].data) {
-                const d = result[0].data;
-                if (d['学习']) tasks['学习'] = d['学习'];
-                if (d['工作']) tasks['工作'] = d['工作'];
-                if (d['家务']) tasks['家务'] = d['家务'];
-                if (d['充电']) tasks['充电'] = d['充电'];
+            
+            if (result && result.length > 0) {
+                for (const item of result) {
+                    if (item.label && item.data) tasks[item.label] = item.data;
+                }
                 localStorage.setItem('tasks', JSON.stringify(tasks));
                 renderTasks();
                 renderDayView();
                 renderWeekView();
+                showSyncStatus('已更新 ✓');
             }
         }
 
@@ -6338,28 +6347,110 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             setTimeout(() => { indicator.style.opacity = '0'; }, 2000);
         }
 
-        // ntfy 推送通知（仅测试用）
-        async function sendNtfyNotification(message) {
+        // ntfy 推送通知 - 修复乱码：不使用json，直接用纯文本body
+        async function sendNtfyNotification(title, message, priority = 3) {
             const topic = localStorage.getItem('ntfyTopic') || NTFY_TOPIC;
             if (!topic) return;
+            
             try {
-                await fetch(`https://ntfy.sh/${topic}`, { method: 'POST', body: message });
+                // 直接用纯文本发送，避免中文乱码
+                // title放到body第一行，用---分隔
+                const body = title + '\n---\n' + message;
+                await fetch(`https://ntfy.sh/${topic}`, {
+                    method: 'POST',
+                    headers: { 
+                        'Title': 'notify',
+                        'Priority': String(priority), 
+                        'Tags': 'bell'
+                    },
+                    body: body
+                });
+                console.log('ntfy sent:', title);
             } catch (e) { console.error('ntfy error:', e); }
         }
 
-        // 同步 ntfy 配置到云端
-        async function syncNtfyConfigToCloud() {
-            const url = localStorage.getItem('supabaseUrl');
-            if (!url) return;
-            const userId = getUserId();
-            const topic = localStorage.getItem('ntfyTopic') || '';
-            const existing = await supabaseRequest('ntfy_config', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
-            if (existing && existing.length > 0) {
-                await supabaseRequest('ntfy_config', 'PATCH', { topic: topic, enabled: !!topic, updated_at: new Date().toISOString() }, `?user_id=eq.${encodeURIComponent(userId)}`);
-            } else {
-                await supabaseRequest('ntfy_config', 'POST', { user_id: userId, topic: topic, enabled: !!topic });
+        // 已发送提醒的任务ID集合（防重复）
+        let sentReminders = JSON.parse(localStorage.getItem('sentReminders') || '{}');
+        
+        // 保存已发送记录
+        function saveSentReminders() {
+            // 清理24小时前的记录
+            const now = Date.now();
+            const cleaned = {};
+            for (const key in sentReminders) {
+                if (now - sentReminders[key] < 86400000) {
+                    cleaned[key] = sentReminders[key];
+                }
             }
+            sentReminders = cleaned;
+            localStorage.setItem('sentReminders', JSON.stringify(sentReminders));
         }
+
+        // 检查任务提醒 - 修复漏通知
+        function checkTaskReminders() {
+            const now = new Date();
+            const nowTs = now.getTime();
+            
+            ['学习', '工作', '家务', '充电'].forEach(label => {
+                tasks[label].forEach((task, idx) => {
+                    const taskId = task.id || `${label}_${idx}_${task.desc}`;
+                    
+                    // 检查提醒时间
+                    if (task.reminder) {
+                        const reminderTime = new Date(task.reminder).getTime();
+                        const diff = reminderTime - nowTs;
+                        const reminderKey = `reminder_${taskId}`;
+                        
+                        // 提醒时间前5分钟到后30分钟内都触发（避免漏掉）
+                        // 只要没发送过就发送
+                        if (diff > -1800000 && diff < 300000 && !sentReminders[reminderKey]) {
+                            sendNtfyNotification(
+                                'Task Reminder',
+                                task.desc + '\nEstimate: ' + (task.estimate || 60) + ' min',
+                                4
+                            );
+                            sentReminders[reminderKey] = nowTs;
+                            saveSentReminders();
+                        }
+                    }
+                    
+                    // 检查DDL（截止时间前1小时提醒）
+                    if (task.ddl) {
+                        const ddlTime = new Date(task.ddl).getTime();
+                        const diff = ddlTime - nowTs;
+                        const ddlKey = `ddl1h_${taskId}`;
+                        
+                        // DDL前70分钟到前50分钟内触发（20分钟窗口）
+                        if (diff > 3000000 && diff < 4200000 && !sentReminders[ddlKey]) {
+                            sendNtfyNotification(
+                                'Deadline Soon',
+                                task.desc + '\nDue in 1 hour',
+                                5
+                            );
+                            sentReminders[ddlKey] = nowTs;
+                            saveSentReminders();
+                        }
+                        
+                        // DDL前15分钟再提醒一次
+                        const ddlKey15 = `ddl15m_${taskId}`;
+                        if (diff > 0 && diff < 900000 && !sentReminders[ddlKey15]) {
+                            sendNtfyNotification(
+                                'Deadline Alert',
+                                task.desc + '\nDue in 15 min!',
+                                5
+                            );
+                            sentReminders[ddlKey15] = nowTs;
+                            saveSentReminders();
+                        }
+                    }
+                });
+            });
+        }
+        
+        // 每30秒检查一次（更频繁，减少漏通知）
+        setInterval(checkTaskReminders, 30000);
+        // 立即检查一次
+        setTimeout(checkTaskReminders, 2000);
 
         // 重写saveTasks以自动同步
         const _originalSaveTasks = saveTasks;
@@ -6374,7 +6465,6 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             showSyncStatus('同步中...');
             await syncTasksToCloud();
             await syncHistoryToCloud();
-            await syncNtfyConfigToCloud();
         }
 
         // 云同步设置弹窗
@@ -6444,7 +6534,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             const topic = document.getElementById('ntfyTopicInput').value.trim();
             if (topic) {
                 localStorage.setItem('ntfyTopic', topic);
-                sendNtfyNotification('test');
+                sendNtfyNotification('Test OK', 'Push notification works!', 3);
                 alert('测试通知已发送');
             } else {
                 alert('请先填写主题名称');
