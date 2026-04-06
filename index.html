@@ -547,6 +547,73 @@
             font-weight: 500;
             cursor: pointer;
             flex-shrink: 0;
+            transition: all 0.2s;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .bgm-btn.playing {
+            background: #22c55e;
+            color: white;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        /* BGM选择列表样式 */
+        .bgm-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 12px 20px 20px;
+        }
+
+        .bgm-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            background: var(--bg-primary);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .bgm-item:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .bgm-item.selected {
+            border-color: #22c55e;
+            background: rgba(34, 197, 94, 0.1);
+        }
+
+        .bgm-item-name {
+            font-size: 15px;
+            font-weight: 500;
+        }
+
+        .bgm-item-check {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: transparent;
+            transition: all 0.2s;
+        }
+
+        .bgm-item.selected .bgm-item-check {
+            background: #22c55e;
+            border-color: #22c55e;
+            color: white;
         }
 
         .time-presets {
@@ -2246,7 +2313,7 @@
                     <input type="range" class="timer-slider" id="timerSlider" min="0" max="100" value="0" oninput="onTimerSliderChange(this.value)">
                     <div class="timer-display-inline" id="timerDisplay">25:00</div>
                 </div>
-                <button class="bgm-btn">BGM</button>
+                <button class="bgm-btn" id="bgmBtn">BGM</button>
             </div>
             <div class="time-presets">
                 <button class="time-preset" onclick="setTimer(-1)">正计时</button>
@@ -2363,6 +2430,16 @@
             <div class="settings-item" onclick="showBgModal()">
                 <span class="settings-item-label">背景图</span>
                 <span class="settings-item-arrow">›</span>
+            </div>
+        </div>
+
+        <div class="settings-group">
+            <div class="section-label" style="padding: 16px 20px 12px;">🎵 BGM 设置</div>
+            <div class="bgm-list" id="bgmList">
+                <!-- 动态生成BGM列表 -->
+            </div>
+            <div class="settings-item" onclick="refreshBgmList()">
+                <span class="settings-item-label" style="color: var(--accent);">🔄 刷新BGM列表</span>
             </div>
         </div>
     </div>
@@ -6586,6 +6663,8 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             if (localStorage.getItem('supabaseUrl')) {
                 await pullTasksFromCloud();
             }
+            // 初始化BGM模块
+            await initBgmModule();
         });
 
         // 页面可见时刷新
@@ -6596,6 +6675,420 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         });
 
         // ==================== 同步模块结束 ====================
+
+        // ==================== BGM 模块开始 ====================
+        
+        // BGM 状态管理
+        let bgmAudio = null;
+        let bgmList = [];  // 存储BGM列表 [{name, url}]
+        let currentBgmIndex = 0;
+        let isBgmPlaying = false;
+        let bgmLongPressTimer = null;
+        let bgmLongPressed = false;
+
+        // 预设BGM列表（直接使用Supabase Storage的public URL）
+        const defaultBgmList = [
+            { name: '雨声', url: '' },
+            { name: '森林', url: '' },
+            { name: '海浪', url: '' },
+            { name: '咖啡厅', url: '' },
+            { name: '钢琴曲', url: '' }
+        ];
+
+        // 从Supabase Storage获取BGM列表
+        async function fetchBgmListFromStorage() {
+            const supabaseUrl = localStorage.getItem('supabaseUrl');
+            const supabaseKey = localStorage.getItem('supabaseKey');
+            
+            if (!supabaseUrl || !supabaseKey) {
+                console.log('未配置Supabase，使用本地BGM列表');
+                return loadLocalBgmList();
+            }
+
+            try {
+                // 列出storage中bgm bucket下的所有文件
+                const listUrl = `${supabaseUrl}/storage/v1/object/list/bgm`;
+                console.log('请求BGM列表:', listUrl);
+                
+                const res = await fetch(listUrl, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': supabaseKey,
+                        'Authorization': `Bearer ${supabaseKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        prefix: '', 
+                        limit: 100, 
+                        offset: 0,
+                        sortBy: { column: 'name', order: 'asc' }
+                    })
+                });
+
+                console.log('响应状态:', res.status);
+                
+                if (!res.ok) {
+                    const errText = await res.text();
+                    console.log('获取BGM列表失败:', errText);
+                    return loadLocalBgmList();
+                }
+
+                const files = await res.json();
+                console.log('获取到的文件列表:', files);
+                
+                // Supabase返回的是数组，每个元素有 name, id, metadata 等属性
+                if (Array.isArray(files) && files.length > 0) {
+                    const audioExtensions = ['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac'];
+                    
+                    bgmList = files
+                        .filter(f => {
+                            if (!f.name) return false;
+                            const lowerName = f.name.toLowerCase();
+                            return audioExtensions.some(ext => lowerName.endsWith(ext));
+                        })
+                        .map(f => ({
+                            name: f.name.replace(/\.(mp3|wav|ogg|m4a|aac|flac)$/i, ''),
+                            url: `${supabaseUrl}/storage/v1/object/public/bgm/${encodeURIComponent(f.name)}`
+                        }));
+                    
+                    console.log('解析后的BGM列表:', bgmList);
+                    
+                    if (bgmList.length > 0) {
+                        saveBgmListToLocal();
+                        return bgmList;
+                    }
+                }
+                
+                console.log('未找到有效的BGM文件');
+            } catch (e) {
+                console.error('获取BGM列表错误:', e);
+            }
+            
+            return loadLocalBgmList();
+        }
+
+        // 保存BGM列表到本地
+        function saveBgmListToLocal() {
+            localStorage.setItem('bgmList', JSON.stringify(bgmList));
+        }
+
+        // 从本地加载BGM列表
+        function loadLocalBgmList() {
+            const saved = localStorage.getItem('bgmList');
+            if (saved) {
+                try {
+                    bgmList = JSON.parse(saved);
+                    return bgmList;
+                } catch (e) {}
+            }
+            bgmList = defaultBgmList.filter(b => b.url);
+            return bgmList;
+        }
+
+        // 获取当前选中的BGM索引
+        function getSelectedBgmIndex() {
+            const saved = localStorage.getItem('selectedBgmIndex');
+            return saved ? parseInt(saved) : 0;
+        }
+
+        // 保存选中的BGM索引
+        function saveSelectedBgmIndex(index) {
+            localStorage.setItem('selectedBgmIndex', index);
+            currentBgmIndex = index;
+        }
+
+        // 渲染BGM列表到设置页面
+        function renderBgmList() {
+            const container = document.getElementById('bgmList');
+            if (!container) return;
+            
+            if (bgmList.length === 0) {
+                container.innerHTML = `
+                    <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 14px;">
+                        暂无BGM<br>
+                        <span style="font-size: 12px;">请在Supabase Storage创建 bgm bucket并上传音频文件</span>
+                    </div>
+                `;
+                return;
+            }
+            
+            const selectedIndex = getSelectedBgmIndex();
+            
+            container.innerHTML = bgmList.map((bgm, index) => `
+                <div class="bgm-item ${index === selectedIndex ? 'selected' : ''}" onclick="selectBgm(${index})">
+                    <span class="bgm-item-name">${bgm.name}</span>
+                    <span class="bgm-item-check">✓</span>
+                </div>
+            `).join('');
+        }
+
+        // 选择BGM
+        function selectBgm(index) {
+            saveSelectedBgmIndex(index);
+            renderBgmList();
+            
+            // 如果正在播放，切换到新选择的BGM
+            if (isBgmPlaying) {
+                playBgm();
+            }
+            
+            showSyncStatus(`已选择: ${bgmList[index].name}`);
+        }
+
+        // 刷新BGM列表
+        async function refreshBgmList() {
+            const supabaseUrl = localStorage.getItem('supabaseUrl');
+            const supabaseKey = localStorage.getItem('supabaseKey');
+            
+            if (!supabaseUrl || !supabaseKey) {
+                showSyncStatus('请先配置云同步设置');
+                return;
+            }
+            
+            showSyncStatus('正在刷新BGM列表...');
+            
+            // 清除本地缓存，强制重新获取
+            localStorage.removeItem('bgmList');
+            bgmList = [];
+            
+            // 调试模式：直接显示API响应
+            try {
+                const listUrl = `${supabaseUrl}/storage/v1/object/list/bgm`;
+                
+                const res = await fetch(listUrl, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': supabaseKey,
+                        'Authorization': `Bearer ${supabaseKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        prefix: '', 
+                        limit: 100, 
+                        offset: 0,
+                        sortBy: { column: 'name', order: 'asc' }
+                    })
+                });
+                
+                const responseText = await res.text();
+                
+                // 显示调试弹窗
+                showDebugModal(`状态: ${res.status}\n\n响应:\n${responseText}`);
+                
+                // 尝试解析
+                try {
+                    const files = JSON.parse(responseText);
+                    if (Array.isArray(files) && files.length > 0) {
+                        const audioExtensions = ['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac'];
+                        
+                        bgmList = files
+                            .filter(f => {
+                                if (!f.name) return false;
+                                const lowerName = f.name.toLowerCase();
+                                return audioExtensions.some(ext => lowerName.endsWith(ext));
+                            })
+                            .map(f => ({
+                                name: f.name.replace(/\.(mp3|wav|ogg|m4a|aac|flac)$/i, ''),
+                                url: `${supabaseUrl}/storage/v1/object/public/bgm/${encodeURIComponent(f.name)}`
+                            }));
+                        
+                        if (bgmList.length > 0) {
+                            localStorage.setItem('bgmList', JSON.stringify(bgmList));
+                        }
+                    }
+                } catch (parseErr) {
+                    // 解析失败已在弹窗显示原始响应
+                }
+                
+            } catch (e) {
+                showDebugModal(`请求错误:\n${e.message}`);
+            }
+            
+            renderBgmList();
+            
+            if (bgmList.length > 0) {
+                showSyncStatus(`找到 ${bgmList.length} 个BGM`);
+            } else {
+                showSyncStatus('未找到BGM文件');
+            }
+        }
+        
+        // 调试弹窗
+        function showDebugModal(text) {
+            let modal = document.getElementById('debugModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'debugModal';
+                modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px;';
+                modal.onclick = () => modal.style.display = 'none';
+                document.body.appendChild(modal);
+            }
+            modal.innerHTML = `
+                <div style="background:white;border-radius:12px;padding:20px;max-width:90%;max-height:80%;overflow:auto;" onclick="event.stopPropagation()">
+                    <div style="font-weight:bold;margin-bottom:12px;">🔍 调试信息</div>
+                    <pre style="font-size:12px;white-space:pre-wrap;word-break:break-all;background:#f5f5f5;padding:12px;border-radius:8px;">${text}</pre>
+                    <button onclick="document.getElementById('debugModal').style.display='none'" style="margin-top:12px;padding:10px 20px;background:#000;color:#fff;border:none;border-radius:8px;width:100%;">关闭</button>
+                </div>
+            `;
+            modal.style.display = 'flex';
+        }
+
+        // 播放BGM
+        function playBgm() {
+            if (bgmList.length === 0) {
+                showSyncStatus('暂无可用BGM');
+                return;
+            }
+
+            currentBgmIndex = getSelectedBgmIndex();
+            if (currentBgmIndex >= bgmList.length) {
+                currentBgmIndex = 0;
+                saveSelectedBgmIndex(0);
+            }
+
+            const bgm = bgmList[currentBgmIndex];
+            if (!bgm || !bgm.url) {
+                showSyncStatus('BGM链接无效');
+                return;
+            }
+
+            // 停止当前播放
+            if (bgmAudio) {
+                bgmAudio.pause();
+                bgmAudio = null;
+            }
+
+            // 创建新的Audio对象
+            bgmAudio = new Audio(bgm.url);
+            bgmAudio.loop = true;
+            bgmAudio.volume = 0.5;
+            
+            bgmAudio.oncanplaythrough = () => {
+                bgmAudio.play().then(() => {
+                    isBgmPlaying = true;
+                    updateBgmButton();
+                    showSyncStatus(`正在播放: ${bgm.name}`);
+                }).catch(e => {
+                    console.error('播放失败:', e);
+                    showSyncStatus('播放失败，请重试');
+                });
+            };
+
+            bgmAudio.onerror = () => {
+                showSyncStatus('音频加载失败');
+                isBgmPlaying = false;
+                updateBgmButton();
+            };
+
+            bgmAudio.load();
+        }
+
+        // 停止BGM
+        function stopBgm() {
+            if (bgmAudio) {
+                bgmAudio.pause();
+                bgmAudio.currentTime = 0;
+            }
+            isBgmPlaying = false;
+            updateBgmButton();
+            showSyncStatus('已停止播放');
+        }
+
+        // 切换播放/停止
+        function toggleBgm() {
+            if (isBgmPlaying) {
+                stopBgm();
+            } else {
+                playBgm();
+            }
+        }
+
+        // 播放下一首
+        function playNextBgm() {
+            if (bgmList.length === 0) return;
+            
+            currentBgmIndex = (currentBgmIndex + 1) % bgmList.length;
+            saveSelectedBgmIndex(currentBgmIndex);
+            renderBgmList();
+            
+            if (isBgmPlaying || bgmAudio) {
+                playBgm();
+            } else {
+                showSyncStatus(`下一首: ${bgmList[currentBgmIndex].name}`);
+            }
+        }
+
+        // 更新BGM按钮状态
+        function updateBgmButton() {
+            const btn = document.getElementById('bgmBtn');
+            if (!btn) return;
+            
+            if (isBgmPlaying) {
+                btn.classList.add('playing');
+                btn.textContent = '♪';
+            } else {
+                btn.classList.remove('playing');
+                btn.textContent = 'BGM';
+            }
+        }
+
+        // 初始化BGM按钮事件
+        function initBgmButton() {
+            const btn = document.getElementById('bgmBtn');
+            if (!btn) return;
+
+            // 点击 - 播放/停止
+            // 长按 - 下一首
+            
+            btn.addEventListener('mousedown', handleBgmPressStart);
+            btn.addEventListener('mouseup', handleBgmPressEnd);
+            btn.addEventListener('mouseleave', handleBgmPressEnd);
+            
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                handleBgmPressStart(e);
+            }, { passive: false });
+            btn.addEventListener('touchend', handleBgmPressEnd);
+            btn.addEventListener('touchcancel', handleBgmPressEnd);
+        }
+
+        function handleBgmPressStart(e) {
+            bgmLongPressed = false;
+            bgmLongPressTimer = setTimeout(() => {
+                bgmLongPressed = true;
+                playNextBgm();
+                
+                // 震动反馈（如果支持）
+                if (navigator.vibrate) {
+                    navigator.vibrate(50);
+                }
+            }, 500); // 500ms为长按阈值
+        }
+
+        function handleBgmPressEnd(e) {
+            clearTimeout(bgmLongPressTimer);
+            
+            if (!bgmLongPressed) {
+                // 短按 - 切换播放/停止
+                toggleBgm();
+            }
+        }
+
+        // 初始化BGM模块
+        async function initBgmModule() {
+            // 先加载本地列表
+            loadLocalBgmList();
+            renderBgmList();
+            
+            // 然后尝试从云端刷新
+            await fetchBgmListFromStorage();
+            renderBgmList();
+            
+            // 初始化按钮事件
+            initBgmButton();
+        }
+
+        // ==================== BGM 模块结束 ====================
 
         // Initialize
         loadTasks();
