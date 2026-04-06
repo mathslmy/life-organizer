@@ -6492,26 +6492,30 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
 
         // 在设置页面添加同步入口
         function addSyncSettingsUI() {
-            const settingsList = document.querySelector('#page4 .settings-list');
-            if (!settingsList || document.getElementById('syncSettingsSection')) return;
+            if (document.getElementById('syncSettingsSection')) return;
+            
+            const page4 = document.getElementById('page4');
+            if (!page4) return;
             
             const section = document.createElement('div');
             section.id = 'syncSettingsSection';
+            section.className = 'settings-group';
             section.innerHTML = `
+                <div class="section-label" style="padding: 16px 20px 12px;">云同步</div>
                 <div class="settings-item" onclick="openSyncSettings()" style="cursor:pointer;">
-                    <span>☁️ 云同步设置</span>
-                    <span style="color:#999;">›</span>
+                    <span class="settings-item-label">☁️ 云同步设置</span>
+                    <span class="settings-item-arrow">›</span>
                 </div>
                 <div class="settings-item" onclick="openNtfySettings()" style="cursor:pointer;">
-                    <span>🔔 推送通知</span>
-                    <span style="color:#999;">›</span>
+                    <span class="settings-item-label">🔔 推送通知</span>
+                    <span class="settings-item-arrow">›</span>
                 </div>
                 <div class="settings-item" onclick="manualSync()" style="cursor:pointer;">
-                    <span>🔄 立即同步</span>
-                    <span style="color:#999;">›</span>
+                    <span class="settings-item-label">🔄 立即同步</span>
+                    <span class="settings-item-arrow">›</span>
                 </div>
             `;
-            settingsList.appendChild(section);
+            page4.appendChild(section);
         }
 
         // 页面加载时初始化
