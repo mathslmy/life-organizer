@@ -6353,13 +6353,11 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             if (!topic) return;
             
             try {
-                const res = await fetch(`https://ntfy.sh/${topic}`, {
+                await fetch(`https://ntfy.sh/${topic}`, {
                     method: 'POST',
+                    headers: { 'Title': encodeURIComponent(title), 'Priority': String(priority), 'Tags': 'clipboard,task' },
                     body: message
                 });
-                if (res.ok) {
-                    console.log('ntfy 发送成功');
-                }
             } catch (e) { console.error('ntfy error:', e); }
         }
 
@@ -6467,7 +6465,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             const topic = document.getElementById('ntfyTopicInput').value.trim();
             if (topic) {
                 localStorage.setItem('ntfyTopic', topic);
-                sendNtfyNotification('测试', '🎉 测试成功！推送配置正确！', 3);
+                sendNtfyNotification('🎉 测试成功', '推送配置正确！', 3);
                 alert('测试通知已发送');
             } else {
                 alert('请先填写主题名称');
