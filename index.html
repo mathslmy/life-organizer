@@ -6663,8 +6663,10 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             }
 
             try {
-                // 列出storage中bgm目录下的所有文件
+                // 列出storage中bgm bucket下的所有文件
                 const listUrl = `${supabaseUrl}/storage/v1/object/list/bgm`;
+                console.log('请求BGM列表:', listUrl);
+                
                 const res = await fetch(listUrl, {
                     method: 'POST',
                     headers: {
@@ -6672,31 +6674,49 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                         'Authorization': `Bearer ${supabaseKey}`,
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ prefix: '', limit: 100, offset: 0 })
+                    body: JSON.stringify({ 
+                        prefix: '', 
+                        limit: 100, 
+                        offset: 0,
+                        sortBy: { column: 'name', order: 'asc' }
+                    })
                 });
 
+                console.log('响应状态:', res.status);
+                
                 if (!res.ok) {
-                    console.log('获取BGM列表失败，使用本地列表');
+                    const errText = await res.text();
+                    console.log('获取BGM列表失败:', errText);
                     return loadLocalBgmList();
                 }
 
                 const files = await res.json();
+                console.log('获取到的文件列表:', files);
                 
-                if (files && files.length > 0) {
+                // Supabase返回的是数组，每个元素有 name, id, metadata 等属性
+                if (Array.isArray(files) && files.length > 0) {
+                    const audioExtensions = ['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac'];
+                    
                     bgmList = files
-                        .filter(f => f.name && (f.name.endsWith('.mp3') || f.name.endsWith('.wav') || f.name.endsWith('.ogg') || f.name.endsWith('.m4a')))
+                        .filter(f => {
+                            if (!f.name) return false;
+                            const lowerName = f.name.toLowerCase();
+                            return audioExtensions.some(ext => lowerName.endsWith(ext));
+                        })
                         .map(f => ({
-                            name: f.name.replace(/\.(mp3|wav|ogg|m4a)$/i, ''),
-                            url: `${supabaseUrl}/storage/v1/object/public/bgm/${f.name}`
+                            name: f.name.replace(/\.(mp3|wav|ogg|m4a|aac|flac)$/i, ''),
+                            url: `${supabaseUrl}/storage/v1/object/public/bgm/${encodeURIComponent(f.name)}`
                         }));
                     
-                    if (bgmList.length === 0) {
-                        return loadLocalBgmList();
-                    }
+                    console.log('解析后的BGM列表:', bgmList);
                     
-                    saveBgmListToLocal();
-                    return bgmList;
+                    if (bgmList.length > 0) {
+                        saveBgmListToLocal();
+                        return bgmList;
+                    }
                 }
+                
+                console.log('未找到有效的BGM文件');
             } catch (e) {
                 console.error('获取BGM列表错误:', e);
             }
@@ -6774,10 +6794,28 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
 
         // 刷新BGM列表
         async function refreshBgmList() {
+            const supabaseUrl = localStorage.getItem('supabaseUrl');
+            const supabaseKey = localStorage.getItem('supabaseKey');
+            
+            if (!supabaseUrl || !supabaseKey) {
+                showSyncStatus('请先配置云同步设置');
+                return;
+            }
+            
             showSyncStatus('正在刷新BGM列表...');
+            
+            // 清除本地缓存，强制重新获取
+            localStorage.removeItem('bgmList');
+            bgmList = [];
+            
             await fetchBgmListFromStorage();
             renderBgmList();
-            showSyncStatus('BGM列表已更新');
+            
+            if (bgmList.length > 0) {
+                showSyncStatus(`找到 ${bgmList.length} 个BGM`);
+            } else {
+                showSyncStatus('未找到BGM文件');
+            }
         }
 
         // 播放BGM
