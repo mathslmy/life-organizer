@@ -6275,24 +6275,15 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             }
         }
 
-        // 同步任务到云端（单条记录存储所有任务）
+        // 同步任务到云端（单条记录）
         async function syncTasksToCloud() {
             const url = localStorage.getItem('supabaseUrl');
             if (!url) return;
-            
             const userId = getUserId();
-            const allTasks = {
-                '学习': tasks['学习'] || [],
-                '工作': tasks['工作'] || [],
-                '家务': tasks['家务'] || [],
-                '充电': tasks['充电'] || []
-            };
-            
+            const allTasks = { '学习': tasks['学习'] || [], '工作': tasks['工作'] || [], '家务': tasks['家务'] || [], '充电': tasks['充电'] || [] };
             const existing = await supabaseRequest('tasks', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
-            
             if (existing && existing.length > 0) {
-                await supabaseRequest('tasks', 'PATCH', { data: allTasks, updated_at: new Date().toISOString() },
-                    `?user_id=eq.${encodeURIComponent(userId)}`);
+                await supabaseRequest('tasks', 'PATCH', { data: allTasks, updated_at: new Date().toISOString() }, `?user_id=eq.${encodeURIComponent(userId)}`);
             } else {
                 await supabaseRequest('tasks', 'POST', { user_id: userId, data: allTasks });
             }
@@ -6303,17 +6294,14 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         async function pullTasksFromCloud() {
             const url = localStorage.getItem('supabaseUrl');
             if (!url) return;
-            
             const userId = getUserId();
             const result = await supabaseRequest('tasks', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
-            
             if (result && result.length > 0 && result[0].data) {
-                const cloudTasks = result[0].data;
-                ['学习', '工作', '家务', '充电'].forEach(label => {
-                    if (Array.isArray(cloudTasks[label])) {
-                        tasks[label] = cloudTasks[label];
-                    }
-                });
+                const d = result[0].data;
+                if (d['学习']) tasks['学习'] = d['学习'];
+                if (d['工作']) tasks['工作'] = d['工作'];
+                if (d['家务']) tasks['家务'] = d['家务'];
+                if (d['充电']) tasks['充电'] = d['充电'];
                 localStorage.setItem('tasks', JSON.stringify(tasks));
                 renderTasks();
                 renderDayView();
@@ -6350,37 +6338,26 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             setTimeout(() => { indicator.style.opacity = '0'; }, 2000);
         }
 
-        // ntfy 推送通知 - 纯文本避免乱码
-        async function sendNtfyNotification(message, priority = 3) {
+        // ntfy 推送通知（仅测试用）
+        async function sendNtfyNotification(message) {
             const topic = localStorage.getItem('ntfyTopic') || NTFY_TOPIC;
             if (!topic) return;
-            
             try {
-                await fetch(`https://ntfy.sh/${topic}`, {
-                    method: 'POST',
-                    headers: { 'Priority': String(priority) },
-                    body: message
-                });
+                await fetch(`https://ntfy.sh/${topic}`, { method: 'POST', body: message });
             } catch (e) { console.error('ntfy error:', e); }
         }
 
-        // 同步 ntfy 配置到云端（后端定时检查需要）
+        // 同步 ntfy 配置到云端
         async function syncNtfyConfigToCloud() {
             const url = localStorage.getItem('supabaseUrl');
             if (!url) return;
-            
             const userId = getUserId();
             const topic = localStorage.getItem('ntfyTopic') || '';
-            
             const existing = await supabaseRequest('ntfy_config', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
-            
             if (existing && existing.length > 0) {
-                await supabaseRequest('ntfy_config', 'PATCH', 
-                    { topic: topic, enabled: !!topic, updated_at: new Date().toISOString() },
-                    `?user_id=eq.${encodeURIComponent(userId)}`);
+                await supabaseRequest('ntfy_config', 'PATCH', { topic: topic, enabled: !!topic, updated_at: new Date().toISOString() }, `?user_id=eq.${encodeURIComponent(userId)}`);
             } else {
-                await supabaseRequest('ntfy_config', 'POST', 
-                    { user_id: userId, topic: topic, enabled: !!topic });
+                await supabaseRequest('ntfy_config', 'POST', { user_id: userId, topic: topic, enabled: !!topic });
             }
         }
 
@@ -6467,7 +6444,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             const topic = document.getElementById('ntfyTopicInput').value.trim();
             if (topic) {
                 localStorage.setItem('ntfyTopic', topic);
-                sendNtfyNotification('test', 3);
+                sendNtfyNotification('test');
                 alert('测试通知已发送');
             } else {
                 alert('请先填写主题名称');
