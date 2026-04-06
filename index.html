@@ -6275,37 +6275,46 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             }
         }
 
-        // 同步任务到云端（单条记录）
+        // 同步任务到云端
         async function syncTasksToCloud() {
             const url = localStorage.getItem('supabaseUrl');
             if (!url) return;
+            
             const userId = getUserId();
-            const allTasks = { '学习': tasks['学习'] || [], '工作': tasks['工作'] || [], '家务': tasks['家务'] || [], '充电': tasks['充电'] || [] };
-            const existing = await supabaseRequest('tasks', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
-            if (existing && existing.length > 0) {
-                await supabaseRequest('tasks', 'PATCH', { data: allTasks, updated_at: new Date().toISOString() }, `?user_id=eq.${encodeURIComponent(userId)}`);
-            } else {
-                await supabaseRequest('tasks', 'POST', { user_id: userId, data: allTasks });
+            const labels = ['学习', '工作', '家务', '充电'];
+            
+            for (const label of labels) {
+                const taskData = tasks[label] || [];
+                const existing = await supabaseRequest('tasks', 'GET', null, 
+                    `?user_id=eq.${encodeURIComponent(userId)}&label=eq.${encodeURIComponent(label)}`);
+                
+                if (existing && existing.length > 0) {
+                    await supabaseRequest('tasks', 'PATCH', { data: taskData },
+                        `?user_id=eq.${encodeURIComponent(userId)}&label=eq.${encodeURIComponent(label)}`);
+                } else {
+                    await supabaseRequest('tasks', 'POST', { user_id: userId, label: label, data: taskData });
+                }
             }
-            showSyncStatus('已同步');
+            showSyncStatus('已同步 ✓');
         }
 
         // 从云端拉取任务
         async function pullTasksFromCloud() {
             const url = localStorage.getItem('supabaseUrl');
             if (!url) return;
+            
             const userId = getUserId();
             const result = await supabaseRequest('tasks', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
-            if (result && result.length > 0 && result[0].data) {
-                const d = result[0].data;
-                if (d['学习']) tasks['学习'] = d['学习'];
-                if (d['工作']) tasks['工作'] = d['工作'];
-                if (d['家务']) tasks['家务'] = d['家务'];
-                if (d['充电']) tasks['充电'] = d['充电'];
+            
+            if (result && result.length > 0) {
+                for (const item of result) {
+                    if (item.label && item.data) tasks[item.label] = item.data;
+                }
                 localStorage.setItem('tasks', JSON.stringify(tasks));
                 renderTasks();
                 renderDayView();
                 renderWeekView();
+                showSyncStatus('已更新 ✓');
             }
         }
 
@@ -6338,28 +6347,41 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             setTimeout(() => { indicator.style.opacity = '0'; }, 2000);
         }
 
-        // ntfy 推送通知（仅测试用）
-        async function sendNtfyNotification(message) {
+        // ntfy 推送通知
+        async function sendNtfyNotification(title, message, priority = 3) {
             const topic = localStorage.getItem('ntfyTopic') || NTFY_TOPIC;
             if (!topic) return;
+            
             try {
-                await fetch(`https://ntfy.sh/${topic}`, { method: 'POST', body: message });
+                await fetch(`https://ntfy.sh/${topic}`, {
+                    method: 'POST',
+                    headers: { 'Title': encodeURIComponent(title), 'Priority': String(priority), 'Tags': 'clipboard,task' },
+                    body: message
+                });
             } catch (e) { console.error('ntfy error:', e); }
         }
 
-        // 同步 ntfy 配置到云端
-        async function syncNtfyConfigToCloud() {
-            const url = localStorage.getItem('supabaseUrl');
-            if (!url) return;
-            const userId = getUserId();
-            const topic = localStorage.getItem('ntfyTopic') || '';
-            const existing = await supabaseRequest('ntfy_config', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
-            if (existing && existing.length > 0) {
-                await supabaseRequest('ntfy_config', 'PATCH', { topic: topic, enabled: !!topic, updated_at: new Date().toISOString() }, `?user_id=eq.${encodeURIComponent(userId)}`);
-            } else {
-                await supabaseRequest('ntfy_config', 'POST', { user_id: userId, topic: topic, enabled: !!topic });
-            }
+        // 检查任务提醒
+        function checkTaskReminders() {
+            const now = new Date();
+            ['学习', '工作', '家务', '充电'].forEach(label => {
+                tasks[label].forEach(task => {
+                    if (task.reminder) {
+                        const diff = new Date(task.reminder) - now;
+                        if (diff > 0 && diff < 60000) {
+                            sendNtfyNotification('⏰ 任务提醒', `${task.desc}\n预计: ${task.estimate || 60}分钟`, 4);
+                        }
+                    }
+                    if (task.ddl) {
+                        const diff = new Date(task.ddl) - now;
+                        if (diff > 0 && diff < 3600000 && diff > 3540000) {
+                            sendNtfyNotification('🔔 截止临近', `${task.desc}\n1小时后截止`, 5);
+                        }
+                    }
+                });
+            });
         }
+        setInterval(checkTaskReminders, 60000);
 
         // 重写saveTasks以自动同步
         const _originalSaveTasks = saveTasks;
@@ -6374,7 +6396,6 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             showSyncStatus('同步中...');
             await syncTasksToCloud();
             await syncHistoryToCloud();
-            await syncNtfyConfigToCloud();
         }
 
         // 云同步设置弹窗
@@ -6444,7 +6465,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             const topic = document.getElementById('ntfyTopicInput').value.trim();
             if (topic) {
                 localStorage.setItem('ntfyTopic', topic);
-                sendNtfyNotification('test');
+                sendNtfyNotification('🎉 测试成功', '推送配置正确！', 3);
                 alert('测试通知已发送');
             } else {
                 alert('请先填写主题名称');
