@@ -6992,10 +6992,12 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         // BGM淡入淡出配置
         const BGM_FADE_DURATION = 1000; // 淡入淡出时长（毫秒）- 循环衔接用1秒
         const BGM_TARGET_VOLUME = 0.5; // 目标音量
+        const BGM_CROSSFADE_MIN_VOLUME = 0.25; // 循环交叉淡入淡出的最低音量（目标音量的一半）
         let bgmFadeOutInterval = null; // 淡出定时器
         let bgmFadeInInterval = null; // 淡入定时器
         let bgmLoopCheckInterval = null; // 循环检测定时器
         let bgmNextAudio = null; // 用于无缝循环的下一个音频对象
+        let bgmIsPaused = false; // 是否处于暂停状态
 
         // 淡入效果
         function fadeInBgm(audio, duration = BGM_FADE_DURATION, startVolume = 0, targetVolume = BGM_TARGET_VOLUME) {
@@ -7018,8 +7020,8 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             }, 30);
         }
 
-        // 淡出效果（返回Promise）
-        function fadeOutBgm(audio, duration = BGM_FADE_DURATION) {
+        // 淡出效果（返回Promise），可指定目标音量
+        function fadeOutBgm(audio, duration = BGM_FADE_DURATION, targetVolume = 0) {
             return new Promise((resolve) => {
                 if (!audio || audio.paused) {
                     resolve();
@@ -7032,13 +7034,13 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                 }
                 
                 const startVolume = audio.volume;
-                const step = startVolume / (duration / 30);
+                const step = (startVolume - targetVolume) / (duration / 30);
                 
                 bgmFadeOutInterval = setInterval(() => {
-                    if (audio.volume > step) {
-                        audio.volume = Math.max(audio.volume - step, 0);
+                    if (audio.volume > targetVolume + step) {
+                        audio.volume = Math.max(audio.volume - step, targetVolume);
                     } else {
-                        audio.volume = 0;
+                        audio.volume = targetVolume;
                         clearInterval(bgmFadeOutInterval);
                         bgmFadeOutInterval = null;
                         resolve();
@@ -7062,17 +7064,17 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                 
                 const timeLeft = audio.duration - audio.currentTime;
                 
-                // 当剩余1秒时，开始淡出当前音频，同时准备淡入新音频
+                // 当剩余1秒时，开始交叉淡入淡出
                 if (timeLeft <= 1 && timeLeft > 0 && !bgmNextAudio) {
                     // 创建新的音频对象从头开始
                     bgmNextAudio = new Audio(bgmUrl);
-                    bgmNextAudio.loop = false; // 不使用原生loop
-                    bgmNextAudio.volume = 0;
+                    bgmNextAudio.loop = false;
+                    bgmNextAudio.volume = BGM_CROSSFADE_MIN_VOLUME; // 从0.25开始
                     
                     bgmNextAudio.oncanplaythrough = () => {
-                        // 开始播放新音频并淡入
                         bgmNextAudio.play().then(() => {
-                            fadeInBgm(bgmNextAudio, BGM_FADE_DURATION);
+                            // 从0.25淡入到0.5
+                            fadeInBgm(bgmNextAudio, BGM_FADE_DURATION, BGM_CROSSFADE_MIN_VOLUME, BGM_TARGET_VOLUME);
                         }).catch(e => console.error('循环播放失败:', e));
                     };
                     
@@ -7082,25 +7084,20 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                     
                     bgmNextAudio.load();
                     
-                    // 淡出当前音频
-                    fadeOutBgm(audio, BGM_FADE_DURATION);
+                    // 当前音频从0.5淡出到0.25
+                    fadeOutBgm(audio, BGM_FADE_DURATION, BGM_CROSSFADE_MIN_VOLUME);
                 }
                 
                 // 当前音频播放完毕，切换到新音频
                 if (audio.ended || audio.currentTime >= audio.duration - 0.05) {
                     if (bgmNextAudio) {
-                        // 停止旧音频
                         audio.pause();
-                        
-                        // 切换引用
                         bgmAudio = bgmNextAudio;
                         bgmNextAudio = null;
-                        
-                        // 为新音频重新设置循环检测
                         startLoopCheck(bgmAudio, bgmUrl);
                     }
                 }
-            }, 100); // 每100ms检测一次
+            }, 100);
         }
 
         // 停止循环检测
@@ -7115,7 +7112,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             }
         }
 
-        // 播放BGM（带淡入）
+        // 播放BGM（带淡入）- 用于首次播放或切换歌曲
         function playBgm() {
             if (bgmList.length === 0) {
                 showSyncStatus('暂无可用BGM');
@@ -7137,7 +7134,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             // 如果有正在播放的，先淡出再切换
             if (bgmAudio && !bgmAudio.paused) {
                 stopLoopCheck();
-                fadeOutBgm(bgmAudio, 500).then(() => {
+                fadeOutBgm(bgmAudio, 500, 0).then(() => {
                     bgmAudio.pause();
                     bgmAudio = null;
                     startNewBgm(bgm);
@@ -7150,22 +7147,23 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                 }
                 startNewBgm(bgm);
             }
+            
+            bgmIsPaused = false;
         }
 
         // 开始播放新BGM（内部函数）
         function startNewBgm(bgm) {
             bgmAudio = new Audio(bgm.url);
-            bgmAudio.loop = false; // 不使用原生loop，用自定义的无缝循环
+            bgmAudio.loop = false;
             bgmAudio.volume = 0;
             
             bgmAudio.oncanplaythrough = () => {
                 bgmAudio.play().then(() => {
                     isBgmPlaying = true;
+                    bgmIsPaused = false;
                     updateBgmButton();
                     showSyncStatus(`正在播放: ${bgm.name}`);
-                    // 淡入效果
                     fadeInBgm(bgmAudio);
-                    // 启动循环衔接检测
                     startLoopCheck(bgmAudio, bgm.url);
                 }).catch(e => {
                     console.error('播放失败:', e);
@@ -7182,36 +7180,55 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             bgmAudio.load();
         }
 
-        // 停止BGM（带淡出）
-        function stopBgm() {
+        // 暂停BGM（带淡出，保留进度）
+        function pauseBgm() {
             stopLoopCheck();
             
             if (bgmAudio && !bgmAudio.paused) {
-                fadeOutBgm(bgmAudio, BGM_FADE_DURATION).then(() => {
+                fadeOutBgm(bgmAudio, 500, 0).then(() => {
                     if (bgmAudio) {
                         bgmAudio.pause();
-                        bgmAudio.currentTime = 0;
-                        bgmAudio.volume = BGM_TARGET_VOLUME;
+                        // 不重置 currentTime，保留播放进度
                     }
                     isBgmPlaying = false;
+                    bgmIsPaused = true;
                     updateBgmButton();
-                    showSyncStatus('已停止播放');
+                    showSyncStatus('已暂停');
                 });
-            } else {
-                if (bgmAudio) {
-                    bgmAudio.pause();
-                    bgmAudio.currentTime = 0;
-                }
-                isBgmPlaying = false;
-                updateBgmButton();
-                showSyncStatus('已停止播放');
             }
         }
 
-        // 切换播放/停止
+        // 继续播放BGM（从暂停处恢复）
+        function resumeBgm() {
+            if (bgmAudio && bgmIsPaused) {
+                bgmAudio.volume = 0;
+                bgmAudio.play().then(() => {
+                    isBgmPlaying = true;
+                    bgmIsPaused = false;
+                    updateBgmButton();
+                    fadeInBgm(bgmAudio);
+                    // 重新启动循环检测
+                    const bgm = bgmList[currentBgmIndex];
+                    if (bgm && bgm.url) {
+                        startLoopCheck(bgmAudio, bgm.url);
+                    }
+                    showSyncStatus(`继续播放: ${bgmList[currentBgmIndex]?.name || 'BGM'}`);
+                }).catch(e => {
+                    console.error('恢复播放失败:', e);
+                    showSyncStatus('恢复失败，请重试');
+                });
+            } else {
+                // 如果没有暂停的音频，就重新播放
+                playBgm();
+            }
+        }
+
+        // 切换播放/暂停
         function toggleBgm() {
             if (isBgmPlaying) {
-                stopBgm();
+                pauseBgm();
+            } else if (bgmIsPaused) {
+                resumeBgm();
             } else {
                 playBgm();
             }
