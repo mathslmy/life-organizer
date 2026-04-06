@@ -6232,6 +6232,305 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             }
         }
 
+        // ==================== Supabase + ntfy 同步模块 ====================
+        // 配置区域 - 请填入你的配置
+        let SUPABASE_URL = localStorage.getItem('supabaseUrl') || '';
+        let SUPABASE_KEY = localStorage.getItem('supabaseKey') || '';
+        let NTFY_TOPIC = localStorage.getItem('ntfyTopic') || '';
+
+        // 获取用户ID
+        function getUserId() {
+            let userId = localStorage.getItem('userId');
+            if (!userId) {
+                userId = 'user_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('userId', userId);
+            }
+            return userId;
+        }
+
+        // Supabase 请求封装
+        async function supabaseRequest(table, method, body = null, query = '') {
+            const url = localStorage.getItem('supabaseUrl') || SUPABASE_URL;
+            const key = localStorage.getItem('supabaseKey') || SUPABASE_KEY;
+            if (!url || !key) return null;
+            
+            const fullUrl = `${url}/rest/v1/${table}${query}`;
+            const headers = {
+                'apikey': key,
+                'Authorization': `Bearer ${key}`,
+                'Content-Type': 'application/json',
+                'Prefer': method === 'POST' ? 'return=representation' : 'return=minimal'
+            };
+            
+            try {
+                const options = { method, headers };
+                if (body) options.body = JSON.stringify(body);
+                const res = await fetch(fullUrl, options);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                if (method === 'GET' || method === 'POST') return await res.json();
+                return true;
+            } catch (e) {
+                console.error('Supabase error:', e);
+                return null;
+            }
+        }
+
+        // 同步任务到云端
+        async function syncTasksToCloud() {
+            const url = localStorage.getItem('supabaseUrl');
+            if (!url) return;
+            
+            const userId = getUserId();
+            const labels = ['学习', '工作', '家务', '充电'];
+            
+            for (const label of labels) {
+                const taskData = tasks[label] || [];
+                const existing = await supabaseRequest('tasks', 'GET', null, 
+                    `?user_id=eq.${encodeURIComponent(userId)}&label=eq.${encodeURIComponent(label)}`);
+                
+                if (existing && existing.length > 0) {
+                    await supabaseRequest('tasks', 'PATCH', { data: taskData },
+                        `?user_id=eq.${encodeURIComponent(userId)}&label=eq.${encodeURIComponent(label)}`);
+                } else {
+                    await supabaseRequest('tasks', 'POST', { user_id: userId, label: label, data: taskData });
+                }
+            }
+            showSyncStatus('已同步 ✓');
+        }
+
+        // 从云端拉取任务
+        async function pullTasksFromCloud() {
+            const url = localStorage.getItem('supabaseUrl');
+            if (!url) return;
+            
+            const userId = getUserId();
+            const result = await supabaseRequest('tasks', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
+            
+            if (result && result.length > 0) {
+                for (const item of result) {
+                    if (item.label && item.data) tasks[item.label] = item.data;
+                }
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+                renderTasks();
+                renderDayView();
+                renderWeekView();
+                showSyncStatus('已更新 ✓');
+            }
+        }
+
+        // 同步历史
+        async function syncHistoryToCloud() {
+            const url = localStorage.getItem('supabaseUrl');
+            if (!url) return;
+            
+            const userId = getUserId();
+            const existing = await supabaseRequest('history', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
+            
+            if (existing && existing.length > 0) {
+                await supabaseRequest('history', 'PATCH', { data: history }, `?user_id=eq.${encodeURIComponent(userId)}`);
+            } else {
+                await supabaseRequest('history', 'POST', { user_id: userId, data: history });
+            }
+        }
+
+        // 显示同步状态
+        function showSyncStatus(text) {
+            let indicator = document.getElementById('syncIndicator');
+            if (!indicator) {
+                indicator = document.createElement('div');
+                indicator.id = 'syncIndicator';
+                indicator.style.cssText = 'position:fixed;top:10px;right:10px;padding:8px 16px;background:#22c55e;color:white;border-radius:20px;font-size:12px;z-index:10000;transition:opacity 0.3s;';
+                document.body.appendChild(indicator);
+            }
+            indicator.textContent = text;
+            indicator.style.opacity = '1';
+            setTimeout(() => { indicator.style.opacity = '0'; }, 2000);
+        }
+
+        // ntfy 推送通知
+        async function sendNtfyNotification(title, message, priority = 3) {
+            const topic = localStorage.getItem('ntfyTopic') || NTFY_TOPIC;
+            if (!topic) return;
+            
+            try {
+                await fetch(`https://ntfy.sh/${topic}`, {
+                    method: 'POST',
+                    headers: { 'Title': encodeURIComponent(title), 'Priority': String(priority), 'Tags': 'clipboard,task' },
+                    body: message
+                });
+            } catch (e) { console.error('ntfy error:', e); }
+        }
+
+        // 检查任务提醒
+        function checkTaskReminders() {
+            const now = new Date();
+            ['学习', '工作', '家务', '充电'].forEach(label => {
+                tasks[label].forEach(task => {
+                    if (task.reminder) {
+                        const diff = new Date(task.reminder) - now;
+                        if (diff > 0 && diff < 60000) {
+                            sendNtfyNotification('⏰ 任务提醒', `${task.desc}\n预计: ${task.estimate || 60}分钟`, 4);
+                        }
+                    }
+                    if (task.ddl) {
+                        const diff = new Date(task.ddl) - now;
+                        if (diff > 0 && diff < 3600000 && diff > 3540000) {
+                            sendNtfyNotification('🔔 截止临近', `${task.desc}\n1小时后截止`, 5);
+                        }
+                    }
+                });
+            });
+        }
+        setInterval(checkTaskReminders, 60000);
+
+        // 重写saveTasks以自动同步
+        const _originalSaveTasks = saveTasks;
+        saveTasks = function() {
+            _originalSaveTasks();
+            clearTimeout(window._syncTimeout);
+            window._syncTimeout = setTimeout(syncTasksToCloud, 2000);
+        };
+
+        // 手动同步
+        async function manualSync() {
+            showSyncStatus('同步中...');
+            await syncTasksToCloud();
+            await syncHistoryToCloud();
+        }
+
+        // 云同步设置弹窗
+        function openSyncSettings() {
+            const html = `
+                <div style="padding:20px;">
+                    <h3 style="margin-bottom:16px;font-size:18px;">☁️ 云同步设置</h3>
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block;margin-bottom:4px;font-size:14px;">Supabase URL</label>
+                        <input type="text" id="supabaseUrlInput" value="${localStorage.getItem('supabaseUrl') || ''}" 
+                            placeholder="https://xxx.supabase.co" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;">
+                    </div>
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block;margin-bottom:4px;font-size:14px;">Supabase Key</label>
+                        <input type="text" id="supabaseKeyInput" value="${localStorage.getItem('supabaseKey') || ''}" 
+                            placeholder="anon public key" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;">
+                    </div>
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block;margin-bottom:4px;font-size:14px;">用户ID（多设备使用相同ID）</label>
+                        <input type="text" id="userIdInput" value="${getUserId()}" 
+                            style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;">
+                    </div>
+                    <button onclick="saveSyncSettings()" style="width:100%;padding:12px;background:#000;color:#fff;border:none;border-radius:8px;cursor:pointer;">保存</button>
+                </div>
+            `;
+            showSyncModal(html);
+        }
+
+        function saveSyncSettings() {
+            localStorage.setItem('supabaseUrl', document.getElementById('supabaseUrlInput').value.trim());
+            localStorage.setItem('supabaseKey', document.getElementById('supabaseKeyInput').value.trim());
+            const userId = document.getElementById('userIdInput').value.trim();
+            if (userId) localStorage.setItem('userId', userId);
+            closeSyncModal();
+            showSyncStatus('设置已保存');
+        }
+
+        // ntfy设置弹窗
+        function openNtfySettings() {
+            const html = `
+                <div style="padding:20px;">
+                    <h3 style="margin-bottom:16px;font-size:18px;">🔔 推送通知设置</h3>
+                    <div style="margin-bottom:12px;">
+                        <label style="display:block;margin-bottom:4px;font-size:14px;">ntfy 主题名称</label>
+                        <input type="text" id="ntfyTopicInput" value="${localStorage.getItem('ntfyTopic') || ''}" 
+                            placeholder="my-task-xxxxx" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;">
+                    </div>
+                    <p style="font-size:12px;color:#666;margin:12px 0;">
+                        1. 下载 ntfy App (iOS/Android)<br>
+                        2. 订阅上面填写的主题<br>
+                        3. 即可收到任务提醒
+                    </p>
+                    <button onclick="testNtfy()" style="width:100%;padding:12px;background:#666;color:#fff;border:none;border-radius:8px;margin-bottom:8px;cursor:pointer;">发送测试通知</button>
+                    <button onclick="saveNtfySettings()" style="width:100%;padding:12px;background:#000;color:#fff;border:none;border-radius:8px;cursor:pointer;">保存</button>
+                </div>
+            `;
+            showSyncModal(html);
+        }
+
+        function saveNtfySettings() {
+            localStorage.setItem('ntfyTopic', document.getElementById('ntfyTopicInput').value.trim());
+            closeSyncModal();
+            showSyncStatus('设置已保存');
+        }
+
+        function testNtfy() {
+            const topic = document.getElementById('ntfyTopicInput').value.trim();
+            if (topic) {
+                localStorage.setItem('ntfyTopic', topic);
+                sendNtfyNotification('🎉 测试成功', '推送配置正确！', 3);
+                alert('测试通知已发送');
+            } else {
+                alert('请先填写主题名称');
+            }
+        }
+
+        function showSyncModal(html) {
+            let modal = document.getElementById('syncModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'syncModal';
+                modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10000;padding:20px;';
+                modal.onclick = (e) => { if (e.target === modal) closeSyncModal(); };
+                document.body.appendChild(modal);
+            }
+            modal.innerHTML = `<div style="background:white;border-radius:16px;width:100%;max-width:360px;">${html}</div>`;
+            modal.style.display = 'flex';
+        }
+
+        function closeSyncModal() {
+            const modal = document.getElementById('syncModal');
+            if (modal) modal.style.display = 'none';
+        }
+
+        // 在设置页面添加同步入口
+        function addSyncSettingsUI() {
+            const settingsList = document.querySelector('#page4 .settings-list');
+            if (!settingsList || document.getElementById('syncSettingsSection')) return;
+            
+            const section = document.createElement('div');
+            section.id = 'syncSettingsSection';
+            section.innerHTML = `
+                <div class="settings-item" onclick="openSyncSettings()" style="cursor:pointer;">
+                    <span>☁️ 云同步设置</span>
+                    <span style="color:#999;">›</span>
+                </div>
+                <div class="settings-item" onclick="openNtfySettings()" style="cursor:pointer;">
+                    <span>🔔 推送通知</span>
+                    <span style="color:#999;">›</span>
+                </div>
+                <div class="settings-item" onclick="manualSync()" style="cursor:pointer;">
+                    <span>🔄 立即同步</span>
+                    <span style="color:#999;">›</span>
+                </div>
+            `;
+            settingsList.appendChild(section);
+        }
+
+        // 页面加载时初始化
+        window.addEventListener('load', async () => {
+            setTimeout(addSyncSettingsUI, 200);
+            if (localStorage.getItem('supabaseUrl')) {
+                await pullTasksFromCloud();
+            }
+        });
+
+        // 页面可见时刷新
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && localStorage.getItem('supabaseUrl')) {
+                pullTasksFromCloud();
+            }
+        });
+
+        // ==================== 同步模块结束 ====================
+
         // Initialize
         loadTasks();
         loadHistory();
