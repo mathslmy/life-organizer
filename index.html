@@ -6275,25 +6275,26 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             }
         }
 
-        // 同步任务到云端
+        // 同步任务到云端（使用单条记录存储所有任务）
         async function syncTasksToCloud() {
             const url = localStorage.getItem('supabaseUrl');
             if (!url) return;
             
             const userId = getUserId();
-            const labels = ['学习', '工作', '家务', '充电'];
+            const allTasks = {
+                '学习': tasks['学习'] || [],
+                '工作': tasks['工作'] || [],
+                '家务': tasks['家务'] || [],
+                '充电': tasks['充电'] || []
+            };
             
-            for (const label of labels) {
-                const taskData = tasks[label] || [];
-                const existing = await supabaseRequest('tasks', 'GET', null, 
-                    `?user_id=eq.${encodeURIComponent(userId)}&label=eq.${encodeURIComponent(label)}`);
-                
-                if (existing && existing.length > 0) {
-                    await supabaseRequest('tasks', 'PATCH', { data: taskData },
-                        `?user_id=eq.${encodeURIComponent(userId)}&label=eq.${encodeURIComponent(label)}`);
-                } else {
-                    await supabaseRequest('tasks', 'POST', { user_id: userId, label: label, data: taskData });
-                }
+            const existing = await supabaseRequest('tasks', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
+            
+            if (existing && existing.length > 0) {
+                await supabaseRequest('tasks', 'PATCH', { data: allTasks, updated_at: new Date().toISOString() },
+                    `?user_id=eq.${encodeURIComponent(userId)}`);
+            } else {
+                await supabaseRequest('tasks', 'POST', { user_id: userId, data: allTasks });
             }
             showSyncStatus('已同步 ✓');
         }
@@ -6306,10 +6307,12 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             const userId = getUserId();
             const result = await supabaseRequest('tasks', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
             
-            if (result && result.length > 0) {
-                for (const item of result) {
-                    if (item.label && item.data) tasks[item.label] = item.data;
-                }
+            if (result && result.length > 0 && result[0].data) {
+                const cloudTasks = result[0].data;
+                if (cloudTasks['学习']) tasks['学习'] = cloudTasks['学习'];
+                if (cloudTasks['工作']) tasks['工作'] = cloudTasks['工作'];
+                if (cloudTasks['家务']) tasks['家务'] = cloudTasks['家务'];
+                if (cloudTasks['充电']) tasks['充电'] = cloudTasks['充电'];
                 localStorage.setItem('tasks', JSON.stringify(tasks));
                 renderTasks();
                 renderDayView();
@@ -6347,45 +6350,39 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             setTimeout(() => { indicator.style.opacity = '0'; }, 2000);
         }
 
-        // ntfy 推送通知
-        async function sendNtfyNotification(title, message, priority = 3) {
-            const topic = localStorage.getItem('ntfyTopic') || NTFY_TOPIC;
+        // ntfy 推送通知 - 纯文本避免乱码（仅用于测试）
+        async function sendNtfyNotification(priority = 3) {
+            const topic = localStorage.getItem('ntfyTopic');
             if (!topic) return;
             
             try {
                 await fetch(`https://ntfy.sh/${topic}`, {
                     method: 'POST',
-                    headers: { 
-                        'Title': 'notify',
-                        'Priority': String(priority), 
-                        'Tags': 'clipboard,task'
-                    },
-                    body: title + '\n' + message
+                    headers: { 'Priority': String(priority) },
+                    body: 'notify'
                 });
             } catch (e) { console.error('ntfy error:', e); }
         }
 
-        // 检查任务提醒
-        function checkTaskReminders() {
-            const now = new Date();
-            ['学习', '工作', '家务', '充电'].forEach(label => {
-                tasks[label].forEach(task => {
-                    if (task.reminder) {
-                        const diff = new Date(task.reminder) - now;
-                        if (diff > 0 && diff < 60000) {
-                            sendNtfyNotification('任务提醒', task.desc + '\n预计: ' + (task.estimate || 60) + '分钟', 4);
-                        }
-                    }
-                    if (task.ddl) {
-                        const diff = new Date(task.ddl) - now;
-                        if (diff > 0 && diff < 3600000 && diff > 3540000) {
-                            sendNtfyNotification('截止临近', task.desc + '\n1小时后截止', 5);
-                        }
-                    }
-                });
-            });
+        // 同步 ntfy 配置到云端（后端定时检查需要）
+        async function syncNtfyConfigToCloud() {
+            const url = localStorage.getItem('supabaseUrl');
+            if (!url) return;
+            
+            const userId = getUserId();
+            const topic = localStorage.getItem('ntfyTopic') || '';
+            
+            const existing = await supabaseRequest('ntfy_config', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
+            
+            if (existing && existing.length > 0) {
+                await supabaseRequest('ntfy_config', 'PATCH', 
+                    { topic: topic, enabled: !!topic, updated_at: new Date().toISOString() },
+                    `?user_id=eq.${encodeURIComponent(userId)}`);
+            } else {
+                await supabaseRequest('ntfy_config', 'POST', 
+                    { user_id: userId, topic: topic, enabled: !!topic });
+            }
         }
-        setInterval(checkTaskReminders, 60000);
 
         // 重写saveTasks以自动同步
         const _originalSaveTasks = saveTasks;
@@ -6400,13 +6397,13 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             showSyncStatus('同步中...');
             await syncTasksToCloud();
             await syncHistoryToCloud();
+            await syncNtfyConfigToCloud();
         }
 
-        // 云同步设置弹窗
         function openSyncSettings() {
             const html = `
                 <div style="padding:20px;">
-                    <h3 style="margin-bottom:16px;font-size:18px;">☁️ 云同步设置</h3>
+                    <h3 style="margin-bottom:16px;font-size:18px;">云同步设置</h3>
                     <div style="margin-bottom:12px;">
                         <label style="display:block;margin-bottom:4px;font-size:14px;">Supabase URL</label>
                         <input type="text" id="supabaseUrlInput" value="${localStorage.getItem('supabaseUrl') || ''}" 
@@ -6441,7 +6438,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         function openNtfySettings() {
             const html = `
                 <div style="padding:20px;">
-                    <h3 style="margin-bottom:16px;font-size:18px;">🔔 推送通知设置</h3>
+                    <h3 style="margin-bottom:16px;font-size:18px;">推送通知设置</h3>
                     <div style="margin-bottom:12px;">
                         <label style="display:block;margin-bottom:4px;font-size:14px;">ntfy 主题名称</label>
                         <input type="text" id="ntfyTopicInput" value="${localStorage.getItem('ntfyTopic') || ''}" 
@@ -6450,7 +6447,8 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                     <p style="font-size:12px;color:#666;margin:12px 0;">
                         1. 下载 ntfy App (iOS/Android)<br>
                         2. 订阅上面填写的主题<br>
-                        3. 即可收到任务提醒
+                        3. 保存后由服务器定时推送<br>
+                        4. 无需保持页面打开
                     </p>
                     <button onclick="testNtfy()" style="width:100%;padding:12px;background:#666;color:#fff;border:none;border-radius:8px;margin-bottom:8px;cursor:pointer;">发送测试通知</button>
                     <button onclick="saveNtfySettings()" style="width:100%;padding:12px;background:#000;color:#fff;border:none;border-radius:8px;cursor:pointer;">保存</button>
@@ -6461,6 +6459,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
 
         function saveNtfySettings() {
             localStorage.setItem('ntfyTopic', document.getElementById('ntfyTopicInput').value.trim());
+            syncNtfyConfigToCloud();
             closeSyncModal();
             showSyncStatus('设置已保存');
         }
@@ -6469,7 +6468,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             const topic = document.getElementById('ntfyTopicInput').value.trim();
             if (topic) {
                 localStorage.setItem('ntfyTopic', topic);
-                sendNtfyNotification('测试成功', '推送配置正确！', 3);
+                sendNtfyNotification(3);
                 alert('测试通知已发送');
             } else {
                 alert('请先填写主题名称');
@@ -6507,16 +6506,16 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             section.innerHTML = `
                 <div class="section-label" style="padding: 16px 20px 12px;">云同步</div>
                 <div class="settings-item" onclick="openSyncSettings()" style="cursor:pointer;">
-                    <span class="settings-item-label">☁️ 云同步设置</span>
-                    <span class="settings-item-arrow">›</span>
+                    <span class="settings-item-label">云同步设置</span>
+                    <span class="settings-item-arrow">></span>
                 </div>
                 <div class="settings-item" onclick="openNtfySettings()" style="cursor:pointer;">
-                    <span class="settings-item-label">🔔 推送通知</span>
-                    <span class="settings-item-arrow">›</span>
+                    <span class="settings-item-label">推送通知</span>
+                    <span class="settings-item-arrow">></span>
                 </div>
                 <div class="settings-item" onclick="manualSync()" style="cursor:pointer;">
-                    <span class="settings-item-label">🔄 立即同步</span>
-                    <span class="settings-item-arrow">›</span>
+                    <span class="settings-item-label">立即同步</span>
+                    <span class="settings-item-arrow">></span>
                 </div>
             `;
             page4.appendChild(section);
