@@ -6355,7 +6355,12 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             try {
                 await fetch(`https://ntfy.sh/${topic}`, {
                     method: 'POST',
-                    headers: { 'Title': encodeURIComponent(title), 'Priority': String(priority), 'Tags': 'clipboard,task' },
+                    headers: { 
+                        'Title': title,
+                        'Priority': String(priority), 
+                        'Tags': 'clipboard,task',
+                        'Content-Type': 'text/plain; charset=utf-8'
+                    },
                     body: message
                 });
             } catch (e) { console.error('ntfy error:', e); }
