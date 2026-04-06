@@ -4733,18 +4733,18 @@
             container.scrollTop = container.scrollHeight;
         }
 
+        let focusChatLongPressTimer = null;
+
         function setupFocusChatLongPress(element, msgIndex) {
-            let longPressTimer = null;
-            
             element.addEventListener('touchstart', (e) => {
-                longPressTimer = setTimeout(() => {
+                focusChatLongPressTimer = setTimeout(() => {
                     if (confirm('删除这条消息？')) {
                         deleteFocusChatMessage(msgIndex);
                     }
                 }, 600);
             });
-            element.addEventListener('touchend', () => clearTimeout(longPressTimer));
-            element.addEventListener('touchmove', () => clearTimeout(longPressTimer));
+            element.addEventListener('touchend', () => clearTimeout(focusChatLongPressTimer));
+            element.addEventListener('touchmove', () => clearTimeout(focusChatLongPressTimer));
             element.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
                 if (confirm('删除这条消息？')) {
