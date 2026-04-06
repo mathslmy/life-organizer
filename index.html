@@ -6307,17 +6307,26 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             const userId = getUserId();
             const result = await supabaseRequest('tasks', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
             
-            if (result && result.length > 0 && result[0].data) {
-                const cloudTasks = result[0].data;
-                if (cloudTasks['学习']) tasks['学习'] = cloudTasks['学习'];
-                if (cloudTasks['工作']) tasks['工作'] = cloudTasks['工作'];
-                if (cloudTasks['家务']) tasks['家务'] = cloudTasks['家务'];
-                if (cloudTasks['充电']) tasks['充电'] = cloudTasks['充电'];
-                localStorage.setItem('tasks', JSON.stringify(tasks));
-                renderTasks();
-                renderDayView();
-                renderWeekView();
-                showSyncStatus('已更新 ✓');
+            if (result && result.length > 0) {
+                const row = result[0];
+                // 新格式：data 是 { 学习: [], 工作: [], ... }
+                if (row.data && typeof row.data === 'object') {
+                    const cloudTasks = row.data;
+                    let hasData = false;
+                    ['学习', '工作', '家务', '充电'].forEach(label => {
+                        if (Array.isArray(cloudTasks[label]) && cloudTasks[label].length > 0) {
+                            tasks[label] = cloudTasks[label];
+                            hasData = true;
+                        }
+                    });
+                    if (hasData) {
+                        localStorage.setItem('tasks', JSON.stringify(tasks));
+                        renderTasks();
+                        renderDayView();
+                        renderWeekView();
+                        showSyncStatus('已更新');
+                    }
+                }
             }
         }
 
