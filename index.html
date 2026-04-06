@@ -2865,6 +2865,8 @@
             } else {
                 fill.classList.remove('low');
             }
+            // 存储精力值
+            localStorage.setItem('energyLevel', value);
             renderAIRecommend();
         }
 
@@ -2872,7 +2874,34 @@
         function selectMood(el) {
             document.querySelectorAll('.mood-icon').forEach(m => m.classList.remove('selected'));
             el.classList.add('selected');
+            // 存储心情索引
+            const moodIndex = Array.from(el.parentElement.children).indexOf(el);
+            localStorage.setItem('moodIndex', moodIndex);
             renderAIRecommend();
+        }
+
+        // 加载精力和心情
+        function loadEnergyAndMood() {
+            // 加载精力值
+            const savedEnergy = localStorage.getItem('energyLevel');
+            if (savedEnergy !== null) {
+                const slider = document.getElementById('energySlider');
+                if (slider) {
+                    slider.value = savedEnergy;
+                    updateBattery(savedEnergy);
+                }
+            }
+            
+            // 加载心情
+            const savedMoodIndex = localStorage.getItem('moodIndex');
+            if (savedMoodIndex !== null) {
+                const moodIcons = document.querySelectorAll('.mood-icon');
+                const index = parseInt(savedMoodIndex);
+                if (index >= 0 && index < moodIcons.length) {
+                    moodIcons.forEach(m => m.classList.remove('selected'));
+                    moodIcons[index].classList.add('selected');
+                }
+            }
         }
 
         // Modal functions
@@ -6961,29 +6990,32 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         }
 
         // BGM淡入淡出配置
-        const BGM_FADE_DURATION = 1500; // 淡入淡出时长（毫秒）
+        const BGM_FADE_DURATION = 1000; // 淡入淡出时长（毫秒）- 循环衔接用1秒
         const BGM_TARGET_VOLUME = 0.5; // 目标音量
-        let bgmFadeInterval = null; // 淡入淡出定时器
+        let bgmFadeOutInterval = null; // 淡出定时器
+        let bgmFadeInInterval = null; // 淡入定时器
+        let bgmLoopCheckInterval = null; // 循环检测定时器
+        let bgmNextAudio = null; // 用于无缝循环的下一个音频对象
 
         // 淡入效果
-        function fadeInBgm(audio, duration = BGM_FADE_DURATION) {
-            if (bgmFadeInterval) {
-                clearInterval(bgmFadeInterval);
-                bgmFadeInterval = null;
+        function fadeInBgm(audio, duration = BGM_FADE_DURATION, startVolume = 0, targetVolume = BGM_TARGET_VOLUME) {
+            if (bgmFadeInInterval) {
+                clearInterval(bgmFadeInInterval);
+                bgmFadeInInterval = null;
             }
             
-            audio.volume = 0;
-            const step = BGM_TARGET_VOLUME / (duration / 50); // 每50ms增加一次
+            audio.volume = startVolume;
+            const step = (targetVolume - startVolume) / (duration / 30);
             
-            bgmFadeInterval = setInterval(() => {
-                if (audio.volume < BGM_TARGET_VOLUME - step) {
-                    audio.volume = Math.min(audio.volume + step, BGM_TARGET_VOLUME);
+            bgmFadeInInterval = setInterval(() => {
+                if (audio.volume < targetVolume - step) {
+                    audio.volume = Math.min(audio.volume + step, targetVolume);
                 } else {
-                    audio.volume = BGM_TARGET_VOLUME;
-                    clearInterval(bgmFadeInterval);
-                    bgmFadeInterval = null;
+                    audio.volume = targetVolume;
+                    clearInterval(bgmFadeInInterval);
+                    bgmFadeInInterval = null;
                 }
-            }, 50);
+            }, 30);
         }
 
         // 淡出效果（返回Promise）
@@ -6994,25 +7026,93 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                     return;
                 }
                 
-                if (bgmFadeInterval) {
-                    clearInterval(bgmFadeInterval);
-                    bgmFadeInterval = null;
+                if (bgmFadeOutInterval) {
+                    clearInterval(bgmFadeOutInterval);
+                    bgmFadeOutInterval = null;
                 }
                 
                 const startVolume = audio.volume;
-                const step = startVolume / (duration / 50); // 每50ms减少一次
+                const step = startVolume / (duration / 30);
                 
-                bgmFadeInterval = setInterval(() => {
+                bgmFadeOutInterval = setInterval(() => {
                     if (audio.volume > step) {
                         audio.volume = Math.max(audio.volume - step, 0);
                     } else {
                         audio.volume = 0;
-                        clearInterval(bgmFadeInterval);
-                        bgmFadeInterval = null;
+                        clearInterval(bgmFadeOutInterval);
+                        bgmFadeOutInterval = null;
                         resolve();
                     }
-                }, 50);
+                }, 30);
             });
+        }
+
+        // 启动循环衔接检测
+        function startLoopCheck(audio, bgmUrl) {
+            if (bgmLoopCheckInterval) {
+                clearInterval(bgmLoopCheckInterval);
+            }
+            
+            bgmLoopCheckInterval = setInterval(() => {
+                if (!audio || audio.paused || !isBgmPlaying) {
+                    clearInterval(bgmLoopCheckInterval);
+                    bgmLoopCheckInterval = null;
+                    return;
+                }
+                
+                const timeLeft = audio.duration - audio.currentTime;
+                
+                // 当剩余1秒时，开始淡出当前音频，同时准备淡入新音频
+                if (timeLeft <= 1 && timeLeft > 0 && !bgmNextAudio) {
+                    // 创建新的音频对象从头开始
+                    bgmNextAudio = new Audio(bgmUrl);
+                    bgmNextAudio.loop = false; // 不使用原生loop
+                    bgmNextAudio.volume = 0;
+                    
+                    bgmNextAudio.oncanplaythrough = () => {
+                        // 开始播放新音频并淡入
+                        bgmNextAudio.play().then(() => {
+                            fadeInBgm(bgmNextAudio, BGM_FADE_DURATION);
+                        }).catch(e => console.error('循环播放失败:', e));
+                    };
+                    
+                    bgmNextAudio.onerror = () => {
+                        bgmNextAudio = null;
+                    };
+                    
+                    bgmNextAudio.load();
+                    
+                    // 淡出当前音频
+                    fadeOutBgm(audio, BGM_FADE_DURATION);
+                }
+                
+                // 当前音频播放完毕，切换到新音频
+                if (audio.ended || audio.currentTime >= audio.duration - 0.05) {
+                    if (bgmNextAudio) {
+                        // 停止旧音频
+                        audio.pause();
+                        
+                        // 切换引用
+                        bgmAudio = bgmNextAudio;
+                        bgmNextAudio = null;
+                        
+                        // 为新音频重新设置循环检测
+                        startLoopCheck(bgmAudio, bgmUrl);
+                    }
+                }
+            }, 100); // 每100ms检测一次
+        }
+
+        // 停止循环检测
+        function stopLoopCheck() {
+            if (bgmLoopCheckInterval) {
+                clearInterval(bgmLoopCheckInterval);
+                bgmLoopCheckInterval = null;
+            }
+            if (bgmNextAudio) {
+                bgmNextAudio.pause();
+                bgmNextAudio = null;
+            }
         }
 
         // 播放BGM（带淡入）
@@ -7036,12 +7136,14 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
 
             // 如果有正在播放的，先淡出再切换
             if (bgmAudio && !bgmAudio.paused) {
+                stopLoopCheck();
                 fadeOutBgm(bgmAudio, 500).then(() => {
                     bgmAudio.pause();
                     bgmAudio = null;
                     startNewBgm(bgm);
                 });
             } else {
+                stopLoopCheck();
                 if (bgmAudio) {
                     bgmAudio.pause();
                     bgmAudio = null;
@@ -7052,10 +7154,9 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
 
         // 开始播放新BGM（内部函数）
         function startNewBgm(bgm) {
-            // 创建新的Audio对象
             bgmAudio = new Audio(bgm.url);
-            bgmAudio.loop = true;
-            bgmAudio.volume = 0; // 从0开始，淡入
+            bgmAudio.loop = false; // 不使用原生loop，用自定义的无缝循环
+            bgmAudio.volume = 0;
             
             bgmAudio.oncanplaythrough = () => {
                 bgmAudio.play().then(() => {
@@ -7064,6 +7165,8 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                     showSyncStatus(`正在播放: ${bgm.name}`);
                     // 淡入效果
                     fadeInBgm(bgmAudio);
+                    // 启动循环衔接检测
+                    startLoopCheck(bgmAudio, bgm.url);
                 }).catch(e => {
                     console.error('播放失败:', e);
                     showSyncStatus('播放失败，请重试');
@@ -7081,13 +7184,14 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
 
         // 停止BGM（带淡出）
         function stopBgm() {
+            stopLoopCheck();
+            
             if (bgmAudio && !bgmAudio.paused) {
-                showSyncStatus('正在淡出...');
-                fadeOutBgm(bgmAudio).then(() => {
+                fadeOutBgm(bgmAudio, BGM_FADE_DURATION).then(() => {
                     if (bgmAudio) {
                         bgmAudio.pause();
                         bgmAudio.currentTime = 0;
-                        bgmAudio.volume = BGM_TARGET_VOLUME; // 重置音量以备下次播放
+                        bgmAudio.volume = BGM_TARGET_VOLUME;
                     }
                     isBgmPlaying = false;
                     updateBgmButton();
@@ -7205,6 +7309,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         loadHistory();
         renderTasks();
         loadSettings();
+        loadEnergyAndMood();
         loadAIRecommend();
         loadCurrentFocusTask();
         renderDayView();
