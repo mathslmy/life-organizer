@@ -6350,10 +6350,10 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             setTimeout(() => { indicator.style.opacity = '0'; }, 2000);
         }
 
-        // ntfy 推送通知 - 纯文本避免乱码（仅用于测试）
+        // ntfy 推送通知 - 纯文本避免乱码
         async function sendNtfyNotification(priority = 3) {
             const topic = localStorage.getItem('ntfyTopic');
-            if (!topic) return;
+            if (!topic) return false;
             
             try {
                 await fetch(`https://ntfy.sh/${topic}`, {
@@ -6361,7 +6361,76 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                     headers: { 'Priority': String(priority) },
                     body: 'notify'
                 });
-            } catch (e) { console.error('ntfy error:', e); }
+                return true;
+            } catch (e) { 
+                console.error('ntfy error:', e); 
+                return false;
+            }
+        }
+
+        // 获取已发送记录（从云端）
+        async function getSentNotifications() {
+            const url = localStorage.getItem('supabaseUrl');
+            if (!url) return {};
+            const userId = getUserId();
+            const result = await supabaseRequest('sent_notifications', 'GET', null, 
+                `?user_id=eq.${encodeURIComponent(userId)}&select=task_id,notification_type`);
+            const sent = {};
+            if (result) {
+                result.forEach(r => { sent[`${r.notification_type}_${r.task_id}`] = true; });
+            }
+            return sent;
+        }
+
+        // 记录已发送（到云端）
+        async function markNotificationSent(taskId, type) {
+            const url = localStorage.getItem('supabaseUrl');
+            if (!url) return;
+            const userId = getUserId();
+            await supabaseRequest('sent_notifications', 'POST', {
+                user_id: userId,
+                task_id: taskId,
+                notification_type: type
+            });
+        }
+
+        // 前端检查任务提醒（页面打开时执行，作为后端的补充）
+        async function checkTaskRemindersLocal() {
+            const topic = localStorage.getItem('ntfyTopic');
+            if (!topic) return;
+            
+            const now = Date.now();
+            const sent = await getSentNotifications();
+            const labels = ['学习', '工作', '家务', '充电'];
+            
+            for (const label of labels) {
+                const taskList = tasks[label] || [];
+                for (const task of taskList) {
+                    const taskId = task.id || task.desc;
+                    
+                    // 检查提醒时间：提前5分钟到过后2分钟
+                    if (task.reminder) {
+                        const reminderTime = new Date(task.reminder).getTime();
+                        const diff = reminderTime - now;
+                        const key = `reminder_reminder_${taskId}`;
+                        if (diff > -120000 && diff < 300000 && !sent[key]) {
+                            const success = await sendNtfyNotification(4);
+                            if (success) await markNotificationSent(taskId, 'reminder');
+                        }
+                    }
+                    
+                    // 检查截止时间：提前70分钟到50分钟
+                    if (task.ddl) {
+                        const ddlTime = new Date(task.ddl).getTime();
+                        const diff = ddlTime - now;
+                        const key = `ddl_ddl_${taskId}`;
+                        if (diff > 3000000 && diff < 4200000 && !sent[key]) {
+                            const success = await sendNtfyNotification(5);
+                            if (success) await markNotificationSent(taskId, 'ddl');
+                        }
+                    }
+                }
+            }
         }
 
         // 同步 ntfy 配置到云端（后端定时检查需要）
@@ -6526,13 +6595,18 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             setTimeout(addSyncSettingsUI, 200);
             if (localStorage.getItem('supabaseUrl')) {
                 await pullTasksFromCloud();
+                // 页面加载后检查任务提醒
+                setTimeout(checkTaskRemindersLocal, 1000);
             }
         });
 
-        // 页面可见时刷新
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible' && localStorage.getItem('supabaseUrl')) {
-                pullTasksFromCloud();
+        // 页面可见时刷新并检查提醒
+        document.addEventListener('visibilitychange', async () => {
+            if (document.visibilityState === 'visible') {
+                if (localStorage.getItem('supabaseUrl')) {
+                    await pullTasksFromCloud();
+                    checkTaskRemindersLocal();
+                }
             }
         });
 
