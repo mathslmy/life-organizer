@@ -3229,10 +3229,10 @@
             document.getElementById('taskDesc').value = task.desc;
             document.getElementById('taskLabel').value = label;
             document.getElementById('taskSubject').value = task.subject || '';
-            document.getElementById('taskDDL').value = task.ddl || '';
+            document.getElementById('taskDDL').value = toLocalDatetime(task.ddl);
             document.getElementById('taskEstimate').value = task.estimate || '';
-            document.getElementById('taskStartTime').value = task.startTime || '';
-            document.getElementById('taskReminder').value = task.reminder || '';
+            document.getElementById('taskStartTime').value = toLocalDatetime(task.startTime);
+            document.getElementById('taskReminder').value = toLocalDatetime(task.reminder);
             
             // 选中对应的时间块
             document.querySelectorAll('.time-block').forEach(b => {
@@ -3251,28 +3251,51 @@
             document.getElementById('taskEstimate').value = el.dataset.minutes;
         }
 
+        // 将 datetime-local 值转换为 ISO 时间戳
+        function toISOTimestamp(localDatetime) {
+            if (!localDatetime) return '';
+            // datetime-local 格式: "2026-04-06T07:47"
+            // 直接创建 Date 对象会按本地时区解析
+            const date = new Date(localDatetime);
+            return date.toISOString();
+        }
+
+        // 将 ISO 时间戳转换回 datetime-local 格式（用于编辑时显示）
+        function toLocalDatetime(isoTimestamp) {
+            if (!isoTimestamp) return '';
+            const date = new Date(isoTimestamp);
+            // 转为本地时间的 datetime-local 格式
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+
         function saveTask(e) {
             e.preventDefault();
             const desc = document.getElementById('taskDesc').value;
             const label = document.getElementById('taskLabel').value;
             const estimate = parseInt(document.getElementById('taskEstimate').value) || 0;
-            const ddl = document.getElementById('taskDDL').value;
-            let startTime = document.getElementById('taskStartTime').value;
+            const ddlLocal = document.getElementById('taskDDL').value;
+            let startTimeLocal = document.getElementById('taskStartTime').value;
+            const reminderLocal = document.getElementById('taskReminder').value;
             
             if (!desc) return;
             
             // 如果没填预估开始时间但有DDL和预估时间，自动计算
-            if (!startTime && ddl && estimate > 0) {
-                startTime = calculateStartTime(ddl, estimate);
+            if (!startTimeLocal && ddlLocal && estimate > 0) {
+                startTimeLocal = calculateStartTime(ddlLocal, estimate);
             }
             
             const taskData = {
                 desc: desc,
                 subject: document.getElementById('taskSubject').value,
-                ddl: ddl,
+                ddl: toISOTimestamp(ddlLocal),
                 estimate: estimate,
-                startTime: startTime,
-                reminder: document.getElementById('taskReminder').value,
+                startTime: toISOTimestamp(startTimeLocal),
+                reminder: toISOTimestamp(reminderLocal),
                 timeSpent: 0,
                 thoughts: ''
             };
@@ -5153,9 +5176,9 @@
                     desc: task.desc,
                     subject: task.subject || '',
                     estimate: task.estimate,
-                    startTime: task.startTime,
-                    ddl: task.ddl,
-                    reminder: task.reminder,
+                    startTime: toISOTimestamp(task.startTime),
+                    ddl: toISOTimestamp(task.ddl),
+                    reminder: toISOTimestamp(task.reminder),
                     timeSpent: 0,
                     thoughts: ''
                 });
@@ -5423,13 +5446,13 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
                 const taskIndex = tasks[original.label].findIndex(t => t.id === original.id);
                 if (taskIndex === -1) return;
                 
-                // 更新任务信息
+                // 更新任务信息（时间转换为ISO格式）
                 tasks[original.label][taskIndex] = {
                     ...tasks[original.label][taskIndex],
                     estimate: planned.estimate,
-                    startTime: planned.startTime,
-                    ddl: planned.ddl,
-                    reminder: planned.reminder
+                    startTime: toISOTimestamp(planned.startTime),
+                    ddl: toISOTimestamp(planned.ddl),
+                    reminder: toISOTimestamp(planned.reminder)
                 };
             });
             
@@ -5700,13 +5723,13 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
                 const taskIndex = tasks[original.label].findIndex(t => t.id === original.id);
                 if (taskIndex === -1) return;
                 
-                // 更新任务的时间信息
+                // 更新任务的时间信息（转换为ISO格式）
                 tasks[original.label][taskIndex] = {
                     ...tasks[original.label][taskIndex],
                     estimate: expired.estimate,
-                    startTime: expired.startTime,
-                    ddl: expired.ddl,
-                    reminder: expired.reminder
+                    startTime: toISOTimestamp(expired.startTime),
+                    ddl: toISOTimestamp(expired.ddl),
+                    reminder: toISOTimestamp(expired.reminder)
                 };
             });
             
@@ -6208,9 +6231,9 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                 desc: task.desc || '',
                 subject: task.subject || '',
                 estimate: task.estimate || 60,
-                startTime: task.startTime || '',
-                ddl: task.ddl || '',
-                reminder: task.reminder || '',
+                startTime: toISOTimestamp(task.startTime),
+                ddl: toISOTimestamp(task.ddl),
+                reminder: toISOTimestamp(task.reminder),
                 timeSpent: 0,
                 thoughts: ''
             });
