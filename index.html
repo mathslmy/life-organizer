@@ -2330,7 +2330,7 @@
                 <span class="settings-item-arrow" id="aiPersonaArrow">›</span>
             </div>
             <div class="ai-persona-edit" id="aiPersonaEdit" style="display: none;">
-                <textarea id="aiPersonaText" placeholder="描述你希望AI具有的性格特点...">你是一个温柔且有耐心的助手，善于鼓励用户完成任务。</textarea>
+                <textarea id="aiPersonaText" placeholder="描述你希望AI具有的性格特点..." onblur="saveAIPersona()">你是一个温柔且有耐心的助手，善于鼓励用户完成任务。</textarea>
             </div>
         </div>
 
@@ -3073,7 +3073,17 @@
             if (savedBackupKey) document.getElementById('backupKey').value = savedBackupKey;
             if (savedBackupModel) document.getElementById('backupModel').value = savedBackupModel;
 
+            // 加载AI人设
+            const savedAIPersona = localStorage.getItem('aiPersona');
+            if (savedAIPersona) {
+                document.getElementById('aiPersonaText').value = savedAIPersona;
+            }
+
             loadAIRemindTimes();
+        }
+
+        function saveAIPersona() {
+            localStorage.setItem('aiPersona', document.getElementById('aiPersonaText').value);
         }
 
         function saveAPISettings() {
