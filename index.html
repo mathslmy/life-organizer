@@ -6361,27 +6361,8 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             } catch (e) { console.error('ntfy error:', e); }
         }
 
-        // 检查任务提醒
-        function checkTaskReminders() {
-            const now = new Date();
-            ['学习', '工作', '家务', '充电'].forEach(label => {
-                tasks[label].forEach(task => {
-                    if (task.reminder) {
-                        const diff = new Date(task.reminder) - now;
-                        if (diff > 0 && diff < 60000) {
-                            sendNtfyNotification('⏰ 任务提醒', `${task.desc}\n预计: ${task.estimate || 60}分钟`, 4);
-                        }
-                    }
-                    if (task.ddl) {
-                        const diff = new Date(task.ddl) - now;
-                        if (diff > 0 && diff < 3600000 && diff > 3540000) {
-                            sendNtfyNotification('🔔 截止临近', `${task.desc}\n1小时后截止`, 5);
-                        }
-                    }
-                });
-            });
-        }
-        setInterval(checkTaskReminders, 60000);
+        // 任务提醒已迁移至 Supabase Edge Function + cron-job.org
+        // 本地不再使用 setInterval 检查提醒
 
         // 重写saveTasks以自动同步
         const _originalSaveTasks = saveTasks;
@@ -6455,8 +6436,23 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             showSyncModal(html);
         }
 
-        function saveNtfySettings() {
-            localStorage.setItem('ntfyTopic', document.getElementById('ntfyTopicInput').value.trim());
+        async function saveNtfySettings() {
+            const topic = document.getElementById('ntfyTopicInput').value.trim();
+            localStorage.setItem('ntfyTopic', topic);
+            
+            // 同步 ntfy topic 到云端
+            const url = localStorage.getItem('supabaseUrl');
+            if (url && topic) {
+                const userId = getUserId();
+                const existing = await supabaseRequest('user_settings', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
+                
+                if (existing && existing.length > 0) {
+                    await supabaseRequest('user_settings', 'PATCH', { ntfy_topic: topic }, `?user_id=eq.${encodeURIComponent(userId)}`);
+                } else {
+                    await supabaseRequest('user_settings', 'POST', { user_id: userId, ntfy_topic: topic });
+                }
+            }
+            
             closeSyncModal();
             showSyncStatus('设置已保存');
         }
