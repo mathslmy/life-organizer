@@ -6808,7 +6808,59 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             localStorage.removeItem('bgmList');
             bgmList = [];
             
-            await fetchBgmListFromStorage();
+            // 调试模式：直接显示API响应
+            try {
+                const listUrl = `${supabaseUrl}/storage/v1/object/list/bgm`;
+                
+                const res = await fetch(listUrl, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': supabaseKey,
+                        'Authorization': `Bearer ${supabaseKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        prefix: '', 
+                        limit: 100, 
+                        offset: 0,
+                        sortBy: { column: 'name', order: 'asc' }
+                    })
+                });
+                
+                const responseText = await res.text();
+                
+                // 显示调试弹窗
+                showDebugModal(`状态: ${res.status}\n\n响应:\n${responseText}`);
+                
+                // 尝试解析
+                try {
+                    const files = JSON.parse(responseText);
+                    if (Array.isArray(files) && files.length > 0) {
+                        const audioExtensions = ['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac'];
+                        
+                        bgmList = files
+                            .filter(f => {
+                                if (!f.name) return false;
+                                const lowerName = f.name.toLowerCase();
+                                return audioExtensions.some(ext => lowerName.endsWith(ext));
+                            })
+                            .map(f => ({
+                                name: f.name.replace(/\.(mp3|wav|ogg|m4a|aac|flac)$/i, ''),
+                                url: `${supabaseUrl}/storage/v1/object/public/bgm/${encodeURIComponent(f.name)}`
+                            }));
+                        
+                        if (bgmList.length > 0) {
+                            localStorage.setItem('bgmList', JSON.stringify(bgmList));
+                        }
+                    }
+                } catch (parseErr) {
+                    // 解析失败已在弹窗显示原始响应
+                }
+                
+            } catch (e) {
+                showDebugModal(`请求错误:\n${e.message}`);
+            }
+            
             renderBgmList();
             
             if (bgmList.length > 0) {
@@ -6816,6 +6868,26 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             } else {
                 showSyncStatus('未找到BGM文件');
             }
+        }
+        
+        // 调试弹窗
+        function showDebugModal(text) {
+            let modal = document.getElementById('debugModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'debugModal';
+                modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:99999;padding:20px;';
+                modal.onclick = () => modal.style.display = 'none';
+                document.body.appendChild(modal);
+            }
+            modal.innerHTML = `
+                <div style="background:white;border-radius:12px;padding:20px;max-width:90%;max-height:80%;overflow:auto;" onclick="event.stopPropagation()">
+                    <div style="font-weight:bold;margin-bottom:12px;">🔍 调试信息</div>
+                    <pre style="font-size:12px;white-space:pre-wrap;word-break:break-all;background:#f5f5f5;padding:12px;border-radius:8px;">${text}</pre>
+                    <button onclick="document.getElementById('debugModal').style.display='none'" style="margin-top:12px;padding:10px 20px;background:#000;color:#fff;border:none;border-radius:8px;width:100%;">关闭</button>
+                </div>
+            `;
+            modal.style.display = 'flex';
         }
 
         // 播放BGM
