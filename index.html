@@ -6731,13 +6731,13 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             }
         }
 
-        // 防抖同步用户设置（5秒防抖，减少API调用）
+        // 防抖同步用户设置（1.5秒防抖）
         let userSettingsSyncTimeout = null;
         function debounceSyncUserSettings() {
             if (userSettingsSyncTimeout) clearTimeout(userSettingsSyncTimeout);
             userSettingsSyncTimeout = setTimeout(() => {
                 syncUserSettingsToCloud();
-            }, 5000); // 改为5秒，减少请求频率
+            }, 1500);
         }
 
         // 显示同步状态
