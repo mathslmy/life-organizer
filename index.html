@@ -6568,8 +6568,8 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             };
             
             try {
-                // 使用 upsert（插入或更新），一次请求搞定
-                const upsertUrl = `${url}/rest/v1/user_settings`;
+                // 使用 upsert，指定 user_id 为冲突列
+                const upsertUrl = `${url}/rest/v1/user_settings?on_conflict=user_id`;
                 const res = await fetch(upsertUrl, {
                     method: 'POST',
                     headers: {
@@ -7016,10 +7016,19 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             await initBgmModule();
         });
 
-        // 页面可见时刷新
+        // 页面可见时刷新（加延时确保DOM准备好）
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible' && localStorage.getItem('supabaseUrl')) {
-                pullTasksFromCloud();
+                setTimeout(() => {
+                    pullTasksFromCloud();
+                    pullUserSettingsFromCloud();
+                }, 100);
+            }
+        });
+        
+        // 页面获得焦点时也刷新（备用方案）
+        window.addEventListener('focus', () => {
+            if (localStorage.getItem('supabaseUrl')) {
                 pullUserSettingsFromCloud();
             }
         });
