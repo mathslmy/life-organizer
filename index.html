@@ -7048,11 +7048,11 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             await initBgmModule();
         });
 
-        // 页面可见时刷新（只刷新任务，不刷新用户设置）
+        // 页面可见时刷新
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible' && localStorage.getItem('supabaseUrl')) {
                 pullTasksFromCloud();
-                // 用户设置不需要频繁拉取，只在页面加载时拉取一次
+                pullUserSettingsFromCloud();
             }
         });
 
