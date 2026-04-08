@@ -2868,6 +2868,8 @@
             // 存储精力值
             localStorage.setItem('energyLevel', value);
             renderAIRecommend();
+            // 云同步
+            if (typeof debounceSyncUserSettings === 'function') debounceSyncUserSettings();
         }
 
         // Mood selection
@@ -2878,6 +2880,8 @@
             const moodIndex = Array.from(el.parentElement.children).indexOf(el);
             localStorage.setItem('moodIndex', moodIndex);
             renderAIRecommend();
+            // 云同步
+            if (typeof debounceSyncUserSettings === 'function') debounceSyncUserSettings();
         }
 
         // 加载精力和心情
@@ -2916,6 +2920,8 @@
         function saveAIName() {
             const aiName = document.getElementById('aiName').value;
             localStorage.setItem('aiName', aiName);
+            // 云同步
+            if (typeof debounceSyncUserSettings === 'function') debounceSyncUserSettings();
         }
 
         function showAPIModal() {
@@ -2935,6 +2941,8 @@
             const name = document.getElementById('userName').value;
             // 这里可以保存到localStorage
             localStorage.setItem('userName', name);
+            // 云同步
+            if (typeof debounceSyncUserSettings === 'function') debounceSyncUserSettings();
         }
 
         function uploadAvatar(event) {
@@ -2961,6 +2969,8 @@
             const avatar = document.getElementById('userAvatar');
             avatar.innerHTML = '<img src="' + src + '" alt="avatar">';
             localStorage.setItem('avatarUrl', src);
+            // 云同步
+            if (typeof debounceSyncUserSettings === 'function') debounceSyncUserSettings();
         }
 
         function toggleAIPersona() {
@@ -3016,6 +3026,8 @@
             const avatar = document.getElementById('aiAvatarSmall');
             avatar.innerHTML = '<img src="' + src + '" alt="AI">';
             localStorage.setItem('aiAvatarUrl', src);
+            // 云同步
+            if (typeof debounceSyncUserSettings === 'function') debounceSyncUserSettings();
         }
 
         // Background functions
@@ -3190,6 +3202,8 @@
 
         function saveAIPersona() {
             localStorage.setItem('aiPersona', document.getElementById('aiPersonaText').value);
+            // 云同步
+            if (typeof debounceSyncUserSettings === 'function') debounceSyncUserSettings();
         }
 
         function saveAPISettings() {
@@ -6532,6 +6546,125 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             }
         }
 
+        // ==================== 用户设置同步 ====================
+        
+        // 同步用户设置到云端
+        async function syncUserSettingsToCloud() {
+            const url = localStorage.getItem('supabaseUrl');
+            if (!url) return;
+            
+            const userId = getUserId();
+            const settings = {
+                energy_level: parseInt(localStorage.getItem('energyLevel') || '70'),
+                mood_index: parseInt(localStorage.getItem('moodIndex') || '2'),
+                user_name: localStorage.getItem('userName') || 'User',
+                ai_name: localStorage.getItem('aiName') || 'AI助手',
+                ai_persona: localStorage.getItem('aiPersona') || '你是一个温柔且有耐心的助手，善于鼓励用户完成任务。',
+                user_avatar: localStorage.getItem('avatarUrl') || '',
+                ai_avatar: localStorage.getItem('aiAvatarUrl') || '',
+                updated_at: new Date().toISOString()
+            };
+            
+            const existing = await supabaseRequest('user_settings', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
+            
+            if (existing && existing.length > 0) {
+                await supabaseRequest('user_settings', 'PATCH', settings, `?user_id=eq.${encodeURIComponent(userId)}`);
+            } else {
+                await supabaseRequest('user_settings', 'POST', { user_id: userId, ...settings });
+            }
+        }
+
+        // 从云端拉取用户设置
+        async function pullUserSettingsFromCloud() {
+            const url = localStorage.getItem('supabaseUrl');
+            if (!url) return;
+            
+            const userId = getUserId();
+            const result = await supabaseRequest('user_settings', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
+            
+            if (result && result.length > 0) {
+                const settings = result[0];
+                
+                // 精力值
+                if (settings.energy_level !== undefined) {
+                    localStorage.setItem('energyLevel', settings.energy_level);
+                    const slider = document.getElementById('energySlider');
+                    if (slider) {
+                        slider.value = settings.energy_level;
+                        updateBattery(settings.energy_level);
+                    }
+                }
+                
+                // 心情
+                if (settings.mood_index !== undefined) {
+                    localStorage.setItem('moodIndex', settings.mood_index);
+                    const moodIcons = document.querySelectorAll('.mood-icon');
+                    if (moodIcons.length > settings.mood_index) {
+                        moodIcons.forEach(m => m.classList.remove('selected'));
+                        moodIcons[settings.mood_index].classList.add('selected');
+                    }
+                }
+                
+                // 用户名
+                if (settings.user_name) {
+                    localStorage.setItem('userName', settings.user_name);
+                    const nameInput = document.getElementById('userName');
+                    if (nameInput) nameInput.value = settings.user_name;
+                }
+                
+                // AI名称
+                if (settings.ai_name) {
+                    localStorage.setItem('aiName', settings.ai_name);
+                    const aiNameInput = document.getElementById('aiName');
+                    if (aiNameInput) aiNameInput.value = settings.ai_name;
+                }
+                
+                // AI人设
+                if (settings.ai_persona) {
+                    localStorage.setItem('aiPersona', settings.ai_persona);
+                    const personaText = document.getElementById('aiPersonaText');
+                    if (personaText) personaText.value = settings.ai_persona;
+                }
+                
+                // 用户头像
+                if (settings.user_avatar) {
+                    localStorage.setItem('avatarUrl', settings.user_avatar);
+                    setUserAvatarUI(settings.user_avatar);
+                }
+                
+                // AI头像
+                if (settings.ai_avatar) {
+                    localStorage.setItem('aiAvatarUrl', settings.ai_avatar);
+                    setAIAvatarUI(settings.ai_avatar);
+                }
+            }
+        }
+
+        // 设置用户头像UI
+        function setUserAvatarUI(src) {
+            const avatar = document.getElementById('userAvatar');
+            if (avatar && src) {
+                avatar.innerHTML = '<img src="' + src + '" alt="avatar">';
+            }
+        }
+
+        // 设置AI头像UI
+        function setAIAvatarUI(src) {
+            const avatar = document.getElementById('aiAvatarSmall');
+            if (avatar && src) {
+                avatar.innerHTML = '<img src="' + src + '" alt="AI">';
+            }
+        }
+
+        // 防抖同步用户设置
+        let userSettingsSyncTimeout = null;
+        function debounceSyncUserSettings() {
+            if (userSettingsSyncTimeout) clearTimeout(userSettingsSyncTimeout);
+            userSettingsSyncTimeout = setTimeout(() => {
+                syncUserSettingsToCloud();
+            }, 1500);
+        }
+
         // 显示同步状态
         function showSyncStatus(text) {
             let indicator = document.getElementById('syncIndicator');
@@ -6576,6 +6709,8 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             showSyncStatus('同步中...');
             await syncTasksToCloud();
             await syncHistoryToCloud();
+            await syncUserSettingsToCloud();
+            showSyncStatus('已同步 ✓');
         }
 
         // 云同步设置弹窗
@@ -6718,6 +6853,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             setTimeout(addSyncSettingsUI, 200);
             if (localStorage.getItem('supabaseUrl')) {
                 await pullTasksFromCloud();
+                await pullUserSettingsFromCloud();
             }
             // 初始化BGM模块
             await initBgmModule();
@@ -6727,6 +6863,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible' && localStorage.getItem('supabaseUrl')) {
                 pullTasksFromCloud();
+                pullUserSettingsFromCloud();
             }
         });
 
