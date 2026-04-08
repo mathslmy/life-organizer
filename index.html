@@ -6548,16 +6548,15 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
 
         // ==================== 用户设置同步 ====================
         
-        // 同步用户设置到云端
+        // 同步用户设置到云端（使用upsert，一次请求）
         async function syncUserSettingsToCloud() {
             const url = localStorage.getItem('supabaseUrl');
             const key = localStorage.getItem('supabaseKey');
-            if (!url || !key) {
-                return;
-            }
+            if (!url || !key) return;
             
             const userId = getUserId();
             const settings = {
+                user_id: userId,
                 energy_level: parseInt(localStorage.getItem('energyLevel') || '70'),
                 mood_index: parseInt(localStorage.getItem('moodIndex') || '2'),
                 user_name: localStorage.getItem('userName') || 'User',
@@ -6569,65 +6568,26 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             };
             
             try {
-                // 先检查是否存在记录
-                const checkUrl = `${url}/rest/v1/user_settings?user_id=eq.${encodeURIComponent(userId)}&select=id`;
-                const checkRes = await fetch(checkUrl, {
-                    method: 'GET',
+                // 使用 upsert（插入或更新），一次请求搞定
+                const upsertUrl = `${url}/rest/v1/user_settings`;
+                const res = await fetch(upsertUrl, {
+                    method: 'POST',
                     headers: {
                         'apikey': key,
-                        'Authorization': `Bearer ${key}`
-                    }
+                        'Authorization': `Bearer ${key}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'resolution=merge-duplicates'
+                    },
+                    body: JSON.stringify(settings)
                 });
                 
-                if (!checkRes.ok) {
-                    const errText = await checkRes.text();
-                    showDebugModal(`检查设置失败\n状态: ${checkRes.status}\n\n${errText}`);
+                if (!res.ok) {
+                    const errText = await res.text();
+                    showDebugModal(`同步设置失败\n状态: ${res.status}\n\n${errText}`);
                     return;
                 }
                 
-                const existing = await checkRes.json();
-                
-                if (existing && existing.length > 0) {
-                    // 更新
-                    const updateUrl = `${url}/rest/v1/user_settings?user_id=eq.${encodeURIComponent(userId)}`;
-                    const updateRes = await fetch(updateUrl, {
-                        method: 'PATCH',
-                        headers: {
-                            'apikey': key,
-                            'Authorization': `Bearer ${key}`,
-                            'Content-Type': 'application/json',
-                            'Prefer': 'return=minimal'
-                        },
-                        body: JSON.stringify(settings)
-                    });
-                    
-                    if (!updateRes.ok) {
-                        const errText = await updateRes.text();
-                        showDebugModal(`更新设置失败\n状态: ${updateRes.status}\n\n${errText}`);
-                        return;
-                    }
-                } else {
-                    // 插入
-                    const insertUrl = `${url}/rest/v1/user_settings`;
-                    const insertRes = await fetch(insertUrl, {
-                        method: 'POST',
-                        headers: {
-                            'apikey': key,
-                            'Authorization': `Bearer ${key}`,
-                            'Content-Type': 'application/json',
-                            'Prefer': 'return=representation'
-                        },
-                        body: JSON.stringify({ user_id: userId, ...settings })
-                    });
-                    
-                    if (!insertRes.ok) {
-                        const errText = await insertRes.text();
-                        showDebugModal(`插入设置失败\n状态: ${insertRes.status}\n\n${errText}`);
-                        return;
-                    }
-                }
-                
-                showSyncStatus('设置已同步 ✓');
+                showSyncStatus('已同步 ✓');
             } catch (e) {
                 showDebugModal(`同步异常\n\n${e.message}`);
             }
@@ -6651,44 +6611,25 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                     }
                 });
                 
-                if (!res.ok) {
-                    const errText = await res.text();
-                    showDebugModal(`拉取设置失败\n状态: ${res.status}\n\n${errText}`);
-                    return;
-                }
+                if (!res.ok) return;
                 
                 const result = await res.json();
             
                 if (result && result.length > 0) {
                     const settings = result[0];
                     
-                    // 精力值
+                    // 精力值 - 直接调用updateBatteryUI避免触发同步
                     if (settings.energy_level !== undefined && settings.energy_level !== null) {
-                        localStorage.setItem('energyLevel', settings.energy_level);
-                        const slider = document.getElementById('energySlider');
-                        if (slider) {
-                            slider.value = settings.energy_level;
-                            const fill = document.getElementById('batteryFill');
-                            const text = document.getElementById('batteryText');
-                            if (fill) fill.style.width = settings.energy_level + '%';
-                            if (text) text.textContent = settings.energy_level + '%';
-                            if (fill && settings.energy_level < 20) {
-                                fill.classList.add('low');
-                            } else if (fill) {
-                                fill.classList.remove('low');
-                            }
-                        }
+                        const energyVal = parseInt(settings.energy_level);
+                        localStorage.setItem('energyLevel', energyVal);
+                        updateBatteryUI(energyVal);
                     }
                     
-                    // 心情
+                    // 心情 - 直接调用updateMoodUI避免触发同步
                     if (settings.mood_index !== undefined && settings.mood_index !== null) {
-                        localStorage.setItem('moodIndex', settings.mood_index);
-                        const moodIcons = document.querySelectorAll('.mood-icon');
-                        const idx = parseInt(settings.mood_index);
-                        if (moodIcons.length > idx && idx >= 0) {
-                            moodIcons.forEach(m => m.classList.remove('selected'));
-                            moodIcons[idx].classList.add('selected');
-                        }
+                        const moodIdx = parseInt(settings.mood_index);
+                        localStorage.setItem('moodIndex', moodIdx);
+                        updateMoodUI(moodIdx);
                     }
                     
                     // 用户名
@@ -6727,7 +6668,34 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                     }
                 }
             } catch (e) {
-                showDebugModal(`拉取设置异常\n\n${e.message}`);
+                // 静默失败，不弹窗打扰用户
+            }
+        }
+
+        // 仅更新精力条UI（不触发同步）
+        function updateBatteryUI(value) {
+            const slider = document.getElementById('energySlider');
+            const fill = document.getElementById('batteryFill');
+            const text = document.getElementById('batteryText');
+            
+            if (slider) slider.value = value;
+            if (fill) {
+                fill.style.width = value + '%';
+                if (value < 20) {
+                    fill.classList.add('low');
+                } else {
+                    fill.classList.remove('low');
+                }
+            }
+            if (text) text.textContent = value + '%';
+        }
+
+        // 仅更新心情UI（不触发同步）
+        function updateMoodUI(idx) {
+            const moodIcons = document.querySelectorAll('.mood-icon');
+            if (moodIcons.length > idx && idx >= 0) {
+                moodIcons.forEach(m => m.classList.remove('selected'));
+                moodIcons[idx].classList.add('selected');
             }
         }
 
