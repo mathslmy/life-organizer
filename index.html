@@ -6551,7 +6551,10 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         // 同步用户设置到云端
         async function syncUserSettingsToCloud() {
             const url = localStorage.getItem('supabaseUrl');
-            if (!url) return;
+            const key = localStorage.getItem('supabaseKey');
+            if (!url || !key) {
+                return;
+            }
             
             const userId = getUserId();
             const settings = {
@@ -6565,94 +6568,166 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                 updated_at: new Date().toISOString()
             };
             
-            const existing = await supabaseRequest('user_settings', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
-            
-            if (existing && existing.length > 0) {
-                await supabaseRequest('user_settings', 'PATCH', settings, `?user_id=eq.${encodeURIComponent(userId)}`);
-            } else {
-                await supabaseRequest('user_settings', 'POST', { user_id: userId, ...settings });
+            try {
+                // 先检查是否存在记录
+                const checkUrl = `${url}/rest/v1/user_settings?user_id=eq.${encodeURIComponent(userId)}&select=id`;
+                const checkRes = await fetch(checkUrl, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': key,
+                        'Authorization': `Bearer ${key}`
+                    }
+                });
+                
+                if (!checkRes.ok) {
+                    const errText = await checkRes.text();
+                    showDebugModal(`检查设置失败\n状态: ${checkRes.status}\n\n${errText}`);
+                    return;
+                }
+                
+                const existing = await checkRes.json();
+                
+                if (existing && existing.length > 0) {
+                    // 更新
+                    const updateUrl = `${url}/rest/v1/user_settings?user_id=eq.${encodeURIComponent(userId)}`;
+                    const updateRes = await fetch(updateUrl, {
+                        method: 'PATCH',
+                        headers: {
+                            'apikey': key,
+                            'Authorization': `Bearer ${key}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=minimal'
+                        },
+                        body: JSON.stringify(settings)
+                    });
+                    
+                    if (!updateRes.ok) {
+                        const errText = await updateRes.text();
+                        showDebugModal(`更新设置失败\n状态: ${updateRes.status}\n\n${errText}`);
+                        return;
+                    }
+                } else {
+                    // 插入
+                    const insertUrl = `${url}/rest/v1/user_settings`;
+                    const insertRes = await fetch(insertUrl, {
+                        method: 'POST',
+                        headers: {
+                            'apikey': key,
+                            'Authorization': `Bearer ${key}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=representation'
+                        },
+                        body: JSON.stringify({ user_id: userId, ...settings })
+                    });
+                    
+                    if (!insertRes.ok) {
+                        const errText = await insertRes.text();
+                        showDebugModal(`插入设置失败\n状态: ${insertRes.status}\n\n${errText}`);
+                        return;
+                    }
+                }
+                
+                showSyncStatus('设置已同步 ✓');
+            } catch (e) {
+                showDebugModal(`同步异常\n\n${e.message}`);
             }
         }
 
         // 从云端拉取用户设置
         async function pullUserSettingsFromCloud() {
             const url = localStorage.getItem('supabaseUrl');
-            if (!url) return;
+            const key = localStorage.getItem('supabaseKey');
+            if (!url || !key) return;
             
             const userId = getUserId();
-            const result = await supabaseRequest('user_settings', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
             
-            if (result && result.length > 0) {
-                const settings = result[0];
+            try {
+                const fetchUrl = `${url}/rest/v1/user_settings?user_id=eq.${encodeURIComponent(userId)}`;
+                const res = await fetch(fetchUrl, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': key,
+                        'Authorization': `Bearer ${key}`
+                    }
+                });
                 
-                // 精力值
-                if (settings.energy_level !== undefined) {
-                    localStorage.setItem('energyLevel', settings.energy_level);
-                    const slider = document.getElementById('energySlider');
-                    if (slider) {
-                        slider.value = settings.energy_level;
-                        updateBattery(settings.energy_level);
+                if (!res.ok) {
+                    const errText = await res.text();
+                    showDebugModal(`拉取设置失败\n状态: ${res.status}\n\n${errText}`);
+                    return;
+                }
+                
+                const result = await res.json();
+            
+                if (result && result.length > 0) {
+                    const settings = result[0];
+                    
+                    // 精力值
+                    if (settings.energy_level !== undefined && settings.energy_level !== null) {
+                        localStorage.setItem('energyLevel', settings.energy_level);
+                        const slider = document.getElementById('energySlider');
+                        if (slider) {
+                            slider.value = settings.energy_level;
+                            const fill = document.getElementById('batteryFill');
+                            const text = document.getElementById('batteryText');
+                            if (fill) fill.style.width = settings.energy_level + '%';
+                            if (text) text.textContent = settings.energy_level + '%';
+                            if (fill && settings.energy_level < 20) {
+                                fill.classList.add('low');
+                            } else if (fill) {
+                                fill.classList.remove('low');
+                            }
+                        }
+                    }
+                    
+                    // 心情
+                    if (settings.mood_index !== undefined && settings.mood_index !== null) {
+                        localStorage.setItem('moodIndex', settings.mood_index);
+                        const moodIcons = document.querySelectorAll('.mood-icon');
+                        const idx = parseInt(settings.mood_index);
+                        if (moodIcons.length > idx && idx >= 0) {
+                            moodIcons.forEach(m => m.classList.remove('selected'));
+                            moodIcons[idx].classList.add('selected');
+                        }
+                    }
+                    
+                    // 用户名
+                    if (settings.user_name) {
+                        localStorage.setItem('userName', settings.user_name);
+                        const nameInput = document.getElementById('userName');
+                        if (nameInput) nameInput.value = settings.user_name;
+                    }
+                    
+                    // AI名称
+                    if (settings.ai_name) {
+                        localStorage.setItem('aiName', settings.ai_name);
+                        const aiNameInput = document.getElementById('aiName');
+                        if (aiNameInput) aiNameInput.value = settings.ai_name;
+                    }
+                    
+                    // AI人设
+                    if (settings.ai_persona) {
+                        localStorage.setItem('aiPersona', settings.ai_persona);
+                        const personaText = document.getElementById('aiPersonaText');
+                        if (personaText) personaText.value = settings.ai_persona;
+                    }
+                    
+                    // 用户头像
+                    if (settings.user_avatar) {
+                        localStorage.setItem('avatarUrl', settings.user_avatar);
+                        const avatar = document.getElementById('userAvatar');
+                        if (avatar) avatar.innerHTML = '<img src="' + settings.user_avatar + '" alt="avatar">';
+                    }
+                    
+                    // AI头像
+                    if (settings.ai_avatar) {
+                        localStorage.setItem('aiAvatarUrl', settings.ai_avatar);
+                        const aiAvatar = document.getElementById('aiAvatarSmall');
+                        if (aiAvatar) aiAvatar.innerHTML = '<img src="' + settings.ai_avatar + '" alt="AI">';
                     }
                 }
-                
-                // 心情
-                if (settings.mood_index !== undefined) {
-                    localStorage.setItem('moodIndex', settings.mood_index);
-                    const moodIcons = document.querySelectorAll('.mood-icon');
-                    if (moodIcons.length > settings.mood_index) {
-                        moodIcons.forEach(m => m.classList.remove('selected'));
-                        moodIcons[settings.mood_index].classList.add('selected');
-                    }
-                }
-                
-                // 用户名
-                if (settings.user_name) {
-                    localStorage.setItem('userName', settings.user_name);
-                    const nameInput = document.getElementById('userName');
-                    if (nameInput) nameInput.value = settings.user_name;
-                }
-                
-                // AI名称
-                if (settings.ai_name) {
-                    localStorage.setItem('aiName', settings.ai_name);
-                    const aiNameInput = document.getElementById('aiName');
-                    if (aiNameInput) aiNameInput.value = settings.ai_name;
-                }
-                
-                // AI人设
-                if (settings.ai_persona) {
-                    localStorage.setItem('aiPersona', settings.ai_persona);
-                    const personaText = document.getElementById('aiPersonaText');
-                    if (personaText) personaText.value = settings.ai_persona;
-                }
-                
-                // 用户头像
-                if (settings.user_avatar) {
-                    localStorage.setItem('avatarUrl', settings.user_avatar);
-                    setUserAvatarUI(settings.user_avatar);
-                }
-                
-                // AI头像
-                if (settings.ai_avatar) {
-                    localStorage.setItem('aiAvatarUrl', settings.ai_avatar);
-                    setAIAvatarUI(settings.ai_avatar);
-                }
-            }
-        }
-
-        // 设置用户头像UI
-        function setUserAvatarUI(src) {
-            const avatar = document.getElementById('userAvatar');
-            if (avatar && src) {
-                avatar.innerHTML = '<img src="' + src + '" alt="avatar">';
-            }
-        }
-
-        // 设置AI头像UI
-        function setAIAvatarUI(src) {
-            const avatar = document.getElementById('aiAvatarSmall');
-            if (avatar && src) {
-                avatar.innerHTML = '<img src="' + src + '" alt="AI">';
+            } catch (e) {
+                showDebugModal(`拉取设置异常\n\n${e.message}`);
             }
         }
 
