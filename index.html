@@ -6583,13 +6583,13 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                 
                 if (!res.ok) {
                     const errText = await res.text();
-                    showDebugModal(`同步设置失败\n状态: ${res.status}\n\n${errText}`);
+                    console.error(`同步设置失败\n状态: ${res.status}\n\n${errText}`);
                     return;
                 }
                 
-                showSyncStatus('已同步 ✓');
+                // 静默同步，不显示弹窗
             } catch (e) {
-                showDebugModal(`同步异常\n\n${e.message}`);
+                console.error(`同步异常: ${e.message}`);
             }
         }
 
