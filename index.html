@@ -6808,10 +6808,124 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                         <input type="text" id="userIdInput" value="${getUserId()}" 
                             style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;">
                     </div>
-                    <button onclick="saveSyncSettings()" style="width:100%;padding:12px;background:#000;color:#fff;border:none;border-radius:8px;cursor:pointer;">保存</button>
+                    <button onclick="saveSyncSettings()" style="width:100%;padding:12px;background:#000;color:#fff;border:none;border-radius:8px;cursor:pointer;margin-bottom:8px;">保存</button>
+                    <button onclick="testUserSettingsSync()" style="width:100%;padding:12px;background:#22c55e;color:#fff;border:none;border-radius:8px;cursor:pointer;">🧪 测试用户设置同步</button>
                 </div>
             `;
             showSyncModal(html);
+        }
+
+        // 测试用户设置同步
+        async function testUserSettingsSync() {
+            const url = localStorage.getItem('supabaseUrl');
+            const key = localStorage.getItem('supabaseKey');
+            
+            let log = '=== 同步测试 ===\n\n';
+            log += `URL: ${url ? '已配置' : '❌ 未配置'}\n`;
+            log += `Key: ${key ? '已配置' : '❌ 未配置'}\n`;
+            log += `UserID: ${getUserId()}\n\n`;
+            
+            if (!url || !key) {
+                showDebugModal(log + '❌ 请先配置 Supabase URL 和 Key');
+                return;
+            }
+            
+            const userId = getUserId();
+            
+            // 测试1: 检查表是否存在
+            log += '--- 步骤1: 检查表 ---\n';
+            try {
+                const checkUrl = `${url}/rest/v1/user_settings?select=*&limit=1`;
+                const checkRes = await fetch(checkUrl, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': key,
+                        'Authorization': `Bearer ${key}`
+                    }
+                });
+                const checkText = await checkRes.text();
+                log += `状态: ${checkRes.status}\n`;
+                log += `响应: ${checkText.substring(0, 200)}\n\n`;
+                
+                if (!checkRes.ok) {
+                    showDebugModal(log + '\n❌ 表可能不存在，请执行SQL创建表');
+                    return;
+                }
+            } catch (e) {
+                log += `错误: ${e.message}\n`;
+                showDebugModal(log);
+                return;
+            }
+            
+            // 测试2: 查询当前用户设置
+            log += '--- 步骤2: 查询用户设置 ---\n';
+            try {
+                const queryUrl = `${url}/rest/v1/user_settings?user_id=eq.${encodeURIComponent(userId)}`;
+                const queryRes = await fetch(queryUrl, {
+                    method: 'GET',
+                    headers: {
+                        'apikey': key,
+                        'Authorization': `Bearer ${key}`
+                    }
+                });
+                const queryData = await queryRes.json();
+                log += `状态: ${queryRes.status}\n`;
+                log += `数据: ${JSON.stringify(queryData, null, 2).substring(0, 300)}\n\n`;
+                
+                // 测试3: 插入或更新
+                log += '--- 步骤3: 写入测试 ---\n';
+                const testSettings = {
+                    energy_level: parseInt(localStorage.getItem('energyLevel') || '70'),
+                    mood_index: parseInt(localStorage.getItem('moodIndex') || '2'),
+                    user_name: localStorage.getItem('userName') || 'User',
+                    ai_name: localStorage.getItem('aiName') || 'AI助手',
+                    ai_persona: localStorage.getItem('aiPersona') || '默认人设',
+                    user_avatar: localStorage.getItem('avatarUrl') || '',
+                    ai_avatar: localStorage.getItem('aiAvatarUrl') || '',
+                    updated_at: new Date().toISOString()
+                };
+                log += `要写入的数据:\n${JSON.stringify(testSettings, null, 2).substring(0, 300)}\n\n`;
+                
+                if (queryData && queryData.length > 0) {
+                    // 更新
+                    const updateUrl = `${url}/rest/v1/user_settings?user_id=eq.${encodeURIComponent(userId)}`;
+                    const updateRes = await fetch(updateUrl, {
+                        method: 'PATCH',
+                        headers: {
+                            'apikey': key,
+                            'Authorization': `Bearer ${key}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=representation'
+                        },
+                        body: JSON.stringify(testSettings)
+                    });
+                    const updateText = await updateRes.text();
+                    log += `更新状态: ${updateRes.status}\n`;
+                    log += `更新响应: ${updateText.substring(0, 300)}\n`;
+                } else {
+                    // 插入
+                    const insertUrl = `${url}/rest/v1/user_settings`;
+                    const insertRes = await fetch(insertUrl, {
+                        method: 'POST',
+                        headers: {
+                            'apikey': key,
+                            'Authorization': `Bearer ${key}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=representation'
+                        },
+                        body: JSON.stringify({ user_id: userId, ...testSettings })
+                    });
+                    const insertText = await insertRes.text();
+                    log += `插入状态: ${insertRes.status}\n`;
+                    log += `插入响应: ${insertText.substring(0, 300)}\n`;
+                }
+                
+                log += '\n✅ 测试完成';
+            } catch (e) {
+                log += `错误: ${e.message}\n`;
+            }
+            
+            showDebugModal(log);
         }
 
         function saveSyncSettings() {
