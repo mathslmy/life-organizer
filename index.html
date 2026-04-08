@@ -6731,13 +6731,13 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             }
         }
 
-        // 防抖同步用户设置
+        // 防抖同步用户设置（5秒防抖，减少API调用）
         let userSettingsSyncTimeout = null;
         function debounceSyncUserSettings() {
             if (userSettingsSyncTimeout) clearTimeout(userSettingsSyncTimeout);
             userSettingsSyncTimeout = setTimeout(() => {
                 syncUserSettingsToCloud();
-            }, 1500);
+            }, 5000); // 改为5秒，减少请求频率
         }
 
         // 显示同步状态
@@ -7048,11 +7048,11 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             await initBgmModule();
         });
 
-        // 页面可见时刷新
+        // 页面可见时刷新（只刷新任务，不刷新用户设置）
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible' && localStorage.getItem('supabaseUrl')) {
                 pullTasksFromCloud();
-                pullUserSettingsFromCloud();
+                // 用户设置不需要频繁拉取，只在页面加载时拉取一次
             }
         });
 
