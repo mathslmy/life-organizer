@@ -3417,7 +3417,9 @@
                 reminder: toISOTimestamp(reminderLocal),
                 timeSpent: 0,
                 thoughts: '',
-                focusSessions: []
+                focusSessions: [],
+                focusChatHistory: [],
+                isFocusing: false
             };
             
             if (currentEditingTask) {
@@ -3425,12 +3427,14 @@
                 const oldLabel = currentEditingTask.label;
                 const id = currentEditingTask.id;
                 
-                // 获取原有任务数据，保留 thoughts, timeSpent, focusSessions
+                // 获取原有任务数据，保留 thoughts, timeSpent, focusSessions, focusChatHistory, isFocusing
                 const oldTask = tasks[oldLabel]?.find(t => t.id === id);
                 if (oldTask) {
                     taskData.timeSpent = oldTask.timeSpent || 0;
                     taskData.thoughts = oldTask.thoughts || '';
                     taskData.focusSessions = oldTask.focusSessions || [];
+                    taskData.focusChatHistory = oldTask.focusChatHistory || [];
+                    taskData.isFocusing = oldTask.isFocusing || false;
                 }
                 
                 if (oldLabel !== label) {
@@ -4158,6 +4162,20 @@
         let currentFocusTask = null;
 
         function startFocusTask(desc, label, subject) {
+            // 先清除其他任务的 isFocusing 标记
+            const labels = ['学习', '工作', '家务', '充电'];
+            labels.forEach(l => {
+                tasks[l].forEach(t => {
+                    if (t.isFocusing) t.isFocusing = false;
+                });
+            });
+            
+            // 标记当前任务为专注中
+            const task = tasks[label]?.find(t => t.desc === desc);
+            if (task) {
+                task.isFocusing = true;
+            }
+            
             currentFocusTask = { desc, label, subject };
             localStorage.setItem('currentFocusTask', JSON.stringify(currentFocusTask));
             
@@ -4168,13 +4186,29 @@
             // 加载该任务的感想
             loadThoughts();
             
-            // 同步到云端
-            if (typeof debounceSyncUserSettings === 'function') debounceSyncUserSettings();
+            // 保存任务并同步到云端
+            saveTasks();
             
             switchPage(3);
         }
 
         function loadCurrentFocusTask() {
+            // 优先从任务数据中查找 isFocusing 的任务
+            const labels = ['学习', '工作', '家务', '充电'];
+            for (const label of labels) {
+                const task = tasks[label]?.find(t => t.isFocusing);
+                if (task) {
+                    currentFocusTask = { desc: task.desc, label: label, subject: task.subject || '' };
+                    localStorage.setItem('currentFocusTask', JSON.stringify(currentFocusTask));
+                    document.getElementById('focusTaskName').textContent = task.desc;
+                    document.getElementById('focusLabelTag').textContent = label;
+                    document.getElementById('focusSubject').textContent = task.subject || '无';
+                    loadThoughts();
+                    return;
+                }
+            }
+            
+            // 兼容旧数据：从localStorage加载
             const saved = localStorage.getItem('currentFocusTask');
             if (saved) {
                 const task = JSON.parse(saved);
@@ -4182,6 +4216,8 @@
                 const exists = tasks[task.label]?.find(t => t.desc === task.desc);
                 if (exists) {
                     currentFocusTask = task;
+                    // 标记为专注中
+                    exists.isFocusing = true;
                     document.getElementById('focusTaskName').textContent = task.desc;
                     document.getElementById('focusLabelTag').textContent = task.label;
                     document.getElementById('focusSubject').textContent = task.subject || '无';
@@ -4916,21 +4952,45 @@
 
         function loadFocusChatHistory() {
             if (!currentFocusTask) return [];
+            // 从任务数据中获取
+            const task = tasks[currentFocusTask.label]?.find(t => t.desc === currentFocusTask.desc);
+            if (task && task.focusChatHistory && task.focusChatHistory.length > 0) {
+                return task.focusChatHistory;
+            }
+            // 兼容旧数据：从localStorage获取
             const key = 'focusChat_' + currentFocusTask.desc;
             return JSON.parse(localStorage.getItem(key) || '[]');
         }
 
         function saveFocusChatHistory(history) {
             if (!currentFocusTask) return;
-            const key = 'focusChat_' + currentFocusTask.desc;
             // 保留最近30条
             if (history.length > 30) {
                 history = history.slice(-30);
             }
+            // 保存到任务数据中
+            const task = tasks[currentFocusTask.label]?.find(t => t.desc === currentFocusTask.desc);
+            if (task) {
+                task.focusChatHistory = history;
+                saveTasks();
+            }
+            // 同时保存到localStorage（兼容）
+            const key = 'focusChat_' + currentFocusTask.desc;
             localStorage.setItem(key, JSON.stringify(history));
         }
 
         function deleteFocusChatHistory(desc) {
+            // 从任务数据中删除
+            const labels = ['学习', '工作', '家务', '充电'];
+            for (const label of labels) {
+                const task = tasks[label]?.find(t => t.desc === desc);
+                if (task) {
+                    task.focusChatHistory = [];
+                    saveTasks();
+                    break;
+                }
+            }
+            // 同时从localStorage删除
             const key = 'focusChat_' + desc;
             localStorage.removeItem(key);
         }
@@ -6611,10 +6671,11 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             const result = await supabaseRequest('tasks', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
             
             if (result && result.length > 0) {
+                let focusingTask = null;
                 for (const item of result) {
                     if (item.label && item.data) {
                         tasks[item.label] = item.data;
-                        // 同步 thoughts 和 focusSessions 到 localStorage（兼容旧逻辑）
+                        // 同步到 localStorage（兼容旧逻辑）
                         item.data.forEach(task => {
                             if (task.thoughts) {
                                 localStorage.setItem('thoughts_' + task.desc, task.thoughts);
@@ -6622,10 +6683,28 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                             if (task.focusSessions && task.focusSessions.length > 0) {
                                 localStorage.setItem('focusSessions_' + task.desc, JSON.stringify(task.focusSessions));
                             }
+                            if (task.focusChatHistory && task.focusChatHistory.length > 0) {
+                                localStorage.setItem('focusChat_' + task.desc, JSON.stringify(task.focusChatHistory));
+                            }
+                            // 记录当前专注任务
+                            if (task.isFocusing) {
+                                focusingTask = { desc: task.desc, label: item.label, subject: task.subject || '' };
+                            }
                         });
                     }
                 }
                 localStorage.setItem('tasks', JSON.stringify(tasks));
+                
+                // 恢复当前专注任务
+                if (focusingTask) {
+                    currentFocusTask = focusingTask;
+                    localStorage.setItem('currentFocusTask', JSON.stringify(focusingTask));
+                    document.getElementById('focusTaskName').textContent = focusingTask.desc;
+                    document.getElementById('focusLabelTag').textContent = focusingTask.label;
+                    document.getElementById('focusSubject').textContent = focusingTask.subject || '无';
+                    loadThoughts();
+                }
+                
                 renderTasks();
                 renderDayView();
                 renderWeekView();
@@ -6666,7 +6745,6 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                 ai_persona: localStorage.getItem('aiPersona') || '你是一个温柔且有耐心的助手，善于鼓励用户完成任务。',
                 user_avatar: localStorage.getItem('avatarUrl') || '',
                 ai_avatar: localStorage.getItem('aiAvatarUrl') || '',
-                current_focus_task: localStorage.getItem('currentFocusTask') || '',
                 updated_at: new Date().toISOString()
             };
             
@@ -6768,20 +6846,6 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                         localStorage.setItem('aiAvatarUrl', settings.ai_avatar);
                         const aiAvatar = document.getElementById('aiAvatarSmall');
                         if (aiAvatar) aiAvatar.innerHTML = '<img src="' + settings.ai_avatar + '" alt="AI">';
-                    }
-                    
-                    // 当前专注任务
-                    if (settings.current_focus_task) {
-                        localStorage.setItem('currentFocusTask', settings.current_focus_task);
-                        try {
-                            const task = JSON.parse(settings.current_focus_task);
-                            if (task && task.desc) {
-                                currentFocusTask = task;
-                                document.getElementById('focusTaskName').textContent = task.desc;
-                                document.getElementById('focusLabelTag').textContent = task.label;
-                                document.getElementById('focusSubject').textContent = task.subject || '无';
-                            }
-                        } catch (e) {}
                     }
                 }
             } catch (e) {
