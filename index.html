@@ -3427,13 +3427,22 @@
                 startTime: toISOTimestamp(startTimeLocal),
                 reminder: toISOTimestamp(reminderLocal),
                 timeSpent: 0,
-                thoughts: ''
+                thoughts: '',
+                focusSessions: []
             };
             
             if (currentEditingTask) {
                 // 编辑模式
                 const oldLabel = currentEditingTask.label;
                 const id = currentEditingTask.id;
+                
+                // 获取原有任务数据，保留 thoughts, timeSpent, focusSessions
+                const oldTask = tasks[oldLabel]?.find(t => t.id === id);
+                if (oldTask) {
+                    taskData.timeSpent = oldTask.timeSpent || 0;
+                    taskData.thoughts = oldTask.thoughts || '';
+                    taskData.focusSessions = oldTask.focusSessions || [];
+                }
                 
                 if (oldLabel !== label) {
                     // 标签变了，需要移动任务
@@ -4214,6 +4223,13 @@
 
         function loadThoughts() {
             if (!currentFocusTask) return;
+            // 优先从任务数据获取（云端同步后的数据）
+            const task = tasks[currentFocusTask.label]?.find(t => t.desc === currentFocusTask.desc);
+            if (task && task.thoughts) {
+                document.getElementById('focusThoughts').value = task.thoughts;
+                return;
+            }
+            // 兼容旧数据：从localStorage获取
             const key = 'thoughts_' + currentFocusTask.desc;
             const saved = localStorage.getItem(key);
             document.getElementById('focusThoughts').value = saved || '';
@@ -4222,15 +4238,13 @@
         function saveThoughts() {
             if (!currentFocusTask) return;
             const key = 'thoughts_' + currentFocusTask.desc;
-            const value = document.getElementById('focusThoughts').value;
-            if (value) {
-                localStorage.setItem(key, value);
-                // 同时保存到任务数据
-                const task = tasks[currentFocusTask.label]?.find(t => t.desc === currentFocusTask.desc);
-                if (task) {
-                    task.thoughts = value;
-                    saveTasks();
-                }
+            const value = document.getElementById('focusThoughts').value || '';
+            localStorage.setItem(key, value);
+            // 同时保存到任务数据（无论是否为空都要保存，以便同步）
+            const task = tasks[currentFocusTask.label]?.find(t => t.desc === currentFocusTask.desc);
+            if (task) {
+                task.thoughts = value;
+                saveTasks();
             }
         }
 
@@ -4664,22 +4678,35 @@
             if (!currentFocusTask) return;
             const key = 'focusSessions_' + currentFocusTask.desc;
             let sessions = JSON.parse(localStorage.getItem(key) || '[]');
-            sessions.push({
+            const newSession = {
                 date: new Date().toISOString(),
                 seconds: seconds
-            });
+            };
+            sessions.push(newSession);
             localStorage.setItem(key, JSON.stringify(sessions));
             
-            // 同时更新任务数据中的总时长
+            // 同时更新任务数据中的总时长和专注记录
             const task = tasks[currentFocusTask.label]?.find(t => t.desc === currentFocusTask.desc);
             if (task) {
                 task.timeSpent = (task.timeSpent || 0) + seconds;
+                // 同步 focusSessions 到任务数据，以便云端同步
+                if (!task.focusSessions) task.focusSessions = [];
+                task.focusSessions.push(newSession);
                 saveTasks();
             }
         }
 
-        // 获取专注记录
+        // 获取专注记录（优先从任务数据获取，兼容旧数据从localStorage获取）
         function getFocusSessions(desc) {
+            // 先尝试从任务数据获取
+            const labels = ['学习', '工作', '家务', '充电'];
+            for (const label of labels) {
+                const task = tasks[label]?.find(t => t.desc === desc);
+                if (task && task.focusSessions && task.focusSessions.length > 0) {
+                    return task.focusSessions;
+                }
+            }
+            // 兼容旧数据：从localStorage获取
             const key = 'focusSessions_' + desc;
             return JSON.parse(localStorage.getItem(key) || '[]');
         }
@@ -6521,7 +6548,18 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             
             if (result && result.length > 0) {
                 for (const item of result) {
-                    if (item.label && item.data) tasks[item.label] = item.data;
+                    if (item.label && item.data) {
+                        tasks[item.label] = item.data;
+                        // 同步 thoughts 和 focusSessions 到 localStorage（兼容旧逻辑）
+                        item.data.forEach(task => {
+                            if (task.thoughts) {
+                                localStorage.setItem('thoughts_' + task.desc, task.thoughts);
+                            }
+                            if (task.focusSessions && task.focusSessions.length > 0) {
+                                localStorage.setItem('focusSessions_' + task.desc, JSON.stringify(task.focusSessions));
+                            }
+                        });
+                    }
                 }
                 localStorage.setItem('tasks', JSON.stringify(tasks));
                 renderTasks();
