@@ -4344,14 +4344,33 @@
             
             if (!listEl) return;
             
-            // 获取该日期的所有任务（按startTime的日期）
-            const dayTasks = getAllTasksWithSchedule().filter(t => {
-                if (t.startTime) {
-                    return t.startTime.slice(0, 10) === dateStr;
+            // 获取该日期的所有任务（开始时间或DDL在该日期）
+            const allTasks = getAllTasksWithSchedule();
+            const dayTasks = [];
+            const addedIds = new Set();
+            
+            allTasks.forEach(t => {
+                // 按开始时间匹配
+                if (t.startTime && t.startTime.slice(0, 10) === dateStr) {
+                    if (!addedIds.has(t.id)) {
+                        dayTasks.push({ ...t, matchType: 'start' });
+                        addedIds.add(t.id);
+                    }
                 }
-                return false;
-            }).sort((a, b) => {
-                return new Date(a.startTime) - new Date(b.startTime);
+                // 按DDL匹配（包括没有开始时间的任务）
+                if (t.ddl && t.ddl.slice(0, 10) === dateStr) {
+                    if (!addedIds.has(t.id)) {
+                        dayTasks.push({ ...t, matchType: 'ddl' });
+                        addedIds.add(t.id);
+                    }
+                }
+            });
+            
+            // 排序：有开始时间的按开始时间排，没有的按DDL排
+            dayTasks.sort((a, b) => {
+                const aTime = a.startTime || a.ddl || '';
+                const bTime = b.startTime || b.ddl || '';
+                return aTime.localeCompare(bTime);
             });
             
             if (dayTasks.length === 0) {
@@ -4361,12 +4380,26 @@
             
             let html = '';
             dayTasks.forEach(task => {
-                const startDate = new Date(task.startTime);
-                const startStr = String(startDate.getHours()).padStart(2, '0') + ':' + 
-                                String(startDate.getMinutes()).padStart(2, '0');
-                const endDate = new Date(startDate.getTime() + task.estimate * 60 * 1000);
-                const endStr = String(endDate.getHours()).padStart(2, '0') + ':' + 
-                              String(endDate.getMinutes()).padStart(2, '0');
+                let timeStr = '';
+                if (task.startTime) {
+                    const startDate = new Date(task.startTime);
+                    const startStr = String(startDate.getHours()).padStart(2, '0') + ':' + 
+                                    String(startDate.getMinutes()).padStart(2, '0');
+                    if (task.estimate) {
+                        const endDate = new Date(startDate.getTime() + task.estimate * 60 * 1000);
+                        const endStr = String(endDate.getHours()).padStart(2, '0') + ':' + 
+                                      String(endDate.getMinutes()).padStart(2, '0');
+                        timeStr = `${startStr} - ${endStr}`;
+                    } else {
+                        timeStr = startStr;
+                    }
+                } else if (task.ddl) {
+                    // 只有DDL没有开始时间的任务
+                    const ddlDate = new Date(task.ddl);
+                    const ddlStr = String(ddlDate.getHours()).padStart(2, '0') + ':' + 
+                                  String(ddlDate.getMinutes()).padStart(2, '0');
+                    timeStr = `DDL ${ddlStr}`;
+                }
                 
                 html += `
                     <div class="week-task-item" onclick="editTask('${task.label}', ${task.id}, event)">
@@ -4374,7 +4407,7 @@
                             <div class="week-task-name">${task.desc}</div>
                             <div class="week-task-meta">${task.label}${task.subject ? ' · ' + task.subject : ''}</div>
                         </div>
-                        <div class="week-task-time">${startStr} - ${endStr}</div>
+                        <div class="week-task-time">${timeStr}</div>
                     </div>
                 `;
             });
@@ -5509,7 +5542,7 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
   "originalId": 原任务ID(保持不变),
   "desc": "任务描述(保持原样)",
   "label": "标签(保持原样)",
-  "subject": "课题(保持原样或为空)",
+  "subject": "课题(若标签为学习则必须根据任务描述推断填写，其他标签可为空)",
   "estimate": 预估所需时间(分钟数),
   "startTime": "预估开始时间(格式: YYYY-MM-DDTHH:MM)",
   "ddl": "截止时间(格式: YYYY-MM-DDTHH:MM)",
@@ -5517,10 +5550,11 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
 }
 
 注意：
-1. 保持任务描述、标签、课题不变
-2. 合理安排时间，避免与已有任务冲突
-3. 根据任务性质推断合理的时间安排
-4. 只返回JSON数组，不要有其他文字`;
+1. 保持任务描述、标签不变
+2. 若标签为"学习"且课题为空，必须根据任务描述推断合适的课题名称
+3. 合理安排时间，避免与已有任务冲突
+4. 根据任务性质推断合理的时间安排
+5. 只返回JSON数组，不要有其他文字`;
 
                 let content;
                 try {
@@ -5785,7 +5819,7 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
   "originalId": 原任务ID(保持不变),
   "desc": "任务描述(保持原样)",
   "label": "标签(保持原样)",
-  "subject": "课题(保持原样或为空)",
+  "subject": "课题(若标签为学习且课题为空则必须根据任务描述推断填写)",
   "estimate": 预估所需时间(分钟数),
   "startTime": "新的开始时间(格式: YYYY-MM-DDTHH:MM)",
   "ddl": "新的截止时间(格式: YYYY-MM-DDTHH:MM)",
@@ -5793,11 +5827,12 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
 }
 
 注意：
-1. 保持任务描述、标签、课题、预估时间不变
-2. 重新安排合理的开始时间和DDL，从当前时间往后安排
-3. 合理安排时间，避免与已有任务冲突
-4. 按任务紧急程度优先安排
-5. 只返回JSON数组，不要有其他文字`;
+1. 保持任务描述、标签、预估时间不变
+2. 若标签为"学习"且课题为空，必须根据任务描述推断合适的课题名称
+3. 重新安排合理的开始时间和DDL，从当前时间往后安排
+4. 合理安排时间，避免与已有任务冲突
+5. 按任务紧急程度优先安排
+6. 只返回JSON数组，不要有其他文字`;
 
                 let content;
                 try {
