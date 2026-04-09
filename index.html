@@ -6380,9 +6380,8 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
             try {
                 const context = getUserContext();
                 const allTasks = getAllTasksList();
-                const persona = getAIPersona();
                 
-                const systemPrompt = `${persona}
+                const systemPrompt = `你是一个任务管理助手。
 
 当前时间: ${context.currentTime}
 可用时间: ${context.availableHours}
