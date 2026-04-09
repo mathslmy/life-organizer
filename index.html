@@ -4186,10 +4186,54 @@
             // 加载该任务的感想
             loadThoughts();
             
+            // 根据任务预估时间设置计时器
+            if (task && task.estimate && task.estimate > 0) {
+                // 有预估时间，设置倒计时
+                setTimerByMinutes(task.estimate);
+            } else {
+                // 没有预估时间，设置正计时
+                setTimerByMinutes(-1);
+            }
+            
             // 保存任务并同步到云端
             saveTasks();
             
             switchPage(3);
+        }
+        
+        // 通过分钟数设置计时器（不需要event）
+        function setTimerByMinutes(minutes) {
+            if (isRunning) return;
+            
+            // 清除预设按钮的active状态
+            document.querySelectorAll('.time-preset').forEach(p => p.classList.remove('active'));
+            
+            if (minutes === -1) {
+                // 正计时模式
+                isCountUp = true;
+                countUpSeconds = 0;
+                timerMinutes = 0;
+                timerSeconds = 0;
+                totalSeconds = 0;
+                document.getElementById('timerDisplay').textContent = '00:00';
+                document.getElementById('timerFill').style.width = '0%';
+                document.getElementById('timerSlider').value = 0;
+                // 高亮正计时按钮
+                const countUpBtn = document.querySelector('.time-preset[onclick*="-1"]');
+                if (countUpBtn) countUpBtn.classList.add('active');
+            } else {
+                // 倒计时模式
+                isCountUp = false;
+                timerMinutes = minutes;
+                timerSeconds = 0;
+                totalSeconds = minutes * 60;
+                // 滑块上限是4小时(240分钟)，计算初始位置
+                const maxSeconds = 240 * 60;
+                const initialProgress = (totalSeconds / maxSeconds) * 100;
+                document.getElementById('timerFill').style.width = initialProgress + '%';
+                document.getElementById('timerSlider').value = initialProgress;
+                updateTimerDisplayOnly();
+            }
         }
 
         function loadCurrentFocusTask() {
