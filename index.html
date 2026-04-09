@@ -2248,34 +2248,14 @@
 
         <div id="weekView" class="calendar-view">
             <div class="calendar-header">
-                <span style="font-weight: 600;">2026年4月</span>
-                <span style="color: var(--text-muted);">第14周</span>
+                <span id="calendarMonthTitle" style="font-weight: 600;">2026年4月</span>
+                <span id="calendarWeekNum" style="color: var(--text-muted);">第14周</span>
             </div>
-            <div class="calendar-grid">
-                <div class="calendar-day" style="color: var(--text-muted);">日</div>
-                <div class="calendar-day" style="color: var(--text-muted);">一</div>
-                <div class="calendar-day" style="color: var(--text-muted);">二</div>
-                <div class="calendar-day" style="color: var(--text-muted);">三</div>
-                <div class="calendar-day" style="color: var(--text-muted);">四</div>
-                <div class="calendar-day" style="color: var(--text-muted);">五</div>
-                <div class="calendar-day" style="color: var(--text-muted);">六</div>
-                <div class="calendar-day" data-date="2026-03-29" onclick="selectDateInWeek(this)">29</div>
-                <div class="calendar-day" data-date="2026-03-30" onclick="selectDateInWeek(this)">30</div>
-                <div class="calendar-day" data-date="2026-03-31" onclick="selectDateInWeek(this)">31</div>
-                <div class="calendar-day" data-date="2026-04-01" onclick="selectDateInWeek(this)">1</div>
-                <div class="calendar-day" data-date="2026-04-02" onclick="selectDateInWeek(this)">2</div>
-                <div class="calendar-day" data-date="2026-04-03" onclick="selectDateInWeek(this)">3</div>
-                <div class="calendar-day" data-date="2026-04-04" onclick="selectDateInWeek(this)">4</div>
-                <div class="calendar-day today" data-date="2026-04-05" onclick="selectDateInWeek(this)">5</div>
-                <div class="calendar-day" data-date="2026-04-06" onclick="selectDateInWeek(this)">6</div>
-                <div class="calendar-day" data-date="2026-04-07" onclick="selectDateInWeek(this)">7</div>
-                <div class="calendar-day" data-date="2026-04-08" onclick="selectDateInWeek(this)">8</div>
-                <div class="calendar-day" data-date="2026-04-09" onclick="selectDateInWeek(this)">9</div>
-                <div class="calendar-day" data-date="2026-04-10" onclick="selectDateInWeek(this)">10</div>
-                <div class="calendar-day" data-date="2026-04-11" onclick="selectDateInWeek(this)">11</div>
+            <div class="calendar-grid" id="calendarGrid">
+                <!-- 动态生成 -->
             </div>
             <div class="week-day-tasks" id="weekDayTasks">
-                <div class="week-day-title" id="weekDayTitle">4月5日 待办</div>
+                <div class="week-day-title" id="weekDayTitle">待办</div>
                 <div class="week-day-list" id="weekDayList"></div>
             </div>
         </div>
@@ -4298,10 +4278,50 @@
         let selectedDate = getLocalDateString();
 
         function renderWeekView() {
-            // 更新周视图中有任务的日期标记
+            const todayStr = getLocalDateString();
+            const today = new Date();
+            
+            // 计算当前周的周日（一周的开始）
+            const dayOfWeek = today.getDay(); // 0=周日, 1=周一, ...
+            const weekStart = new Date(today);
+            weekStart.setDate(today.getDate() - dayOfWeek);
+            
+            // 计算周数
+            const startOfYear = new Date(today.getFullYear(), 0, 1);
+            const weekNum = Math.ceil(((today - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
+            
+            // 更新标题
+            document.getElementById('calendarMonthTitle').textContent = `${today.getFullYear()}年${today.getMonth() + 1}月`;
+            document.getElementById('calendarWeekNum').textContent = `第${weekNum}周`;
+            
+            // 生成日历网格
+            const grid = document.getElementById('calendarGrid');
+            let html = `
+                <div class="calendar-day" style="color: var(--text-muted);">日</div>
+                <div class="calendar-day" style="color: var(--text-muted);">一</div>
+                <div class="calendar-day" style="color: var(--text-muted);">二</div>
+                <div class="calendar-day" style="color: var(--text-muted);">三</div>
+                <div class="calendar-day" style="color: var(--text-muted);">四</div>
+                <div class="calendar-day" style="color: var(--text-muted);">五</div>
+                <div class="calendar-day" style="color: var(--text-muted);">六</div>
+            `;
+            
+            // 生成两周的日期（上周+本周）
+            const twoWeeksStart = new Date(weekStart);
+            twoWeeksStart.setDate(weekStart.getDate() - 7);
+            
+            for (let i = 0; i < 14; i++) {
+                const d = new Date(twoWeeksStart);
+                d.setDate(twoWeeksStart.getDate() + i);
+                const dateStr = getLocalDateString(d);
+                html += `<div class="calendar-day" data-date="${dateStr}" onclick="selectDateInWeek(this)">${d.getDate()}</div>`;
+            }
+            
+            grid.innerHTML = html;
+            
+            // 获取有任务的日期
             const allTasks = getAllTasksWithSchedule();
             const taskDates = new Set();
-            const todayStr = getLocalDateString();
             
             allTasks.forEach(t => {
                 if (t.ddl) {
@@ -4312,10 +4332,8 @@
                 }
             });
             
+            // 更新日期样式
             document.querySelectorAll('.calendar-day[data-date]').forEach(day => {
-                day.classList.remove('has-tasks');
-                day.classList.remove('selected');
-                day.classList.remove('today');
                 if (taskDates.has(day.dataset.date)) {
                     day.classList.add('has-tasks');
                 }
