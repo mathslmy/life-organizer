@@ -4358,16 +4358,16 @@
             
             grid.innerHTML = html;
             
-            // 获取有任务的日期
+            // 获取有任务的日期（转为本地日期）
             const allTasks = getAllTasksWithSchedule();
             const taskDates = new Set();
             
             allTasks.forEach(t => {
                 if (t.ddl) {
-                    taskDates.add(t.ddl.slice(0, 10));
+                    taskDates.add(getLocalDateString(new Date(t.ddl)));
                 }
                 if (t.startTime) {
-                    taskDates.add(t.startTime.slice(0, 10));
+                    taskDates.add(getLocalDateString(new Date(t.startTime)));
                 }
             });
             
@@ -4416,16 +4416,18 @@
             const addedIds = new Set();
             
             allTasks.forEach(t => {
-                // 按开始时间匹配
-                if (t.startTime && t.startTime.slice(0, 10) === dateStr) {
-                    if (!addedIds.has(t.id)) {
+                // 按开始时间匹配（转为本地日期比较）
+                if (t.startTime) {
+                    const localDate = getLocalDateString(new Date(t.startTime));
+                    if (localDate === dateStr && !addedIds.has(t.id)) {
                         dayTasks.push({ ...t, matchType: 'start' });
                         addedIds.add(t.id);
                     }
                 }
-                // 按DDL匹配（包括没有开始时间的任务）
-                if (t.ddl && t.ddl.slice(0, 10) === dateStr) {
-                    if (!addedIds.has(t.id)) {
+                // 按DDL匹配（转为本地日期比较）
+                if (t.ddl) {
+                    const localDate = getLocalDateString(new Date(t.ddl));
+                    if (localDate === dateStr && !addedIds.has(t.id)) {
                         dayTasks.push({ ...t, matchType: 'ddl' });
                         addedIds.add(t.id);
                     }
@@ -4498,10 +4500,10 @@
             const startHour = morningStartEl ? parseInt(morningStartEl.value.split(':')[0]) || 8 : 8;
             const endHour = eveningEndEl ? parseInt(eveningEndEl.value.split(':')[0]) || 23 : 23;
             
-            // 获取该日期的所有任务
+            // 获取该日期的所有任务（使用本地日期比较）
             const allTasks = getAllTasksWithSchedule().filter(t => {
                 if (!t.startTime) return false;
-                return t.startTime.slice(0, 10) === dateStr;
+                return getLocalDateString(new Date(t.startTime)) === dateStr;
             });
             
             // 初始化时间槽（每小时一个槽）
