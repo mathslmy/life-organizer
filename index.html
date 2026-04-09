@@ -4168,6 +4168,9 @@
             // 加载该任务的感想
             loadThoughts();
             
+            // 同步到云端
+            if (typeof debounceSyncUserSettings === 'function') debounceSyncUserSettings();
+            
             switchPage(3);
         }
 
@@ -6663,6 +6666,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                 ai_persona: localStorage.getItem('aiPersona') || '你是一个温柔且有耐心的助手，善于鼓励用户完成任务。',
                 user_avatar: localStorage.getItem('avatarUrl') || '',
                 ai_avatar: localStorage.getItem('aiAvatarUrl') || '',
+                current_focus_task: localStorage.getItem('currentFocusTask') || '',
                 updated_at: new Date().toISOString()
             };
             
@@ -6764,6 +6768,20 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                         localStorage.setItem('aiAvatarUrl', settings.ai_avatar);
                         const aiAvatar = document.getElementById('aiAvatarSmall');
                         if (aiAvatar) aiAvatar.innerHTML = '<img src="' + settings.ai_avatar + '" alt="AI">';
+                    }
+                    
+                    // 当前专注任务
+                    if (settings.current_focus_task) {
+                        localStorage.setItem('currentFocusTask', settings.current_focus_task);
+                        try {
+                            const task = JSON.parse(settings.current_focus_task);
+                            if (task && task.desc) {
+                                currentFocusTask = task;
+                                document.getElementById('focusTaskName').textContent = task.desc;
+                                document.getElementById('focusLabelTag').textContent = task.label;
+                                document.getElementById('focusSubject').textContent = task.subject || '无';
+                            }
+                        } catch (e) {}
                     }
                 }
             } catch (e) {
