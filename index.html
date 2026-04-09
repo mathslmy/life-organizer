@@ -2818,6 +2818,15 @@
     </div>
 
     <script>
+        // 获取本地日期字符串 YYYY-MM-DD（用于显示，避免时区问题）
+        function getLocalDateString(date) {
+            const d = date || new Date();
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
         // Data
         let tasks = {
             '学习': [],
@@ -4286,13 +4295,13 @@
             renderDayViewForDate(selectedDate);
         }
 
-        let selectedDate = new Date().toISOString().slice(0, 10);
+        let selectedDate = getLocalDateString();
 
         function renderWeekView() {
             // 更新周视图中有任务的日期标记
             const allTasks = getAllTasksWithSchedule();
             const taskDates = new Set();
-            const todayStr = new Date().toISOString().slice(0, 10);
+            const todayStr = getLocalDateString();
             
             allTasks.forEach(t => {
                 if (t.ddl) {
