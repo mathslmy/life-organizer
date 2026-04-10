@@ -8513,7 +8513,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         // 开始播放新BGM（内部函数）
         function startNewBgm(bgm) {
             bgmAudio = new Audio(bgm.url);
-            bgmAudio.loop = (loopMode === 'one');
+            bgmAudio.loop = false;
             bgmAudio.volume = 0;
             
             bgmAudio.oncanplaythrough = () => {
@@ -8530,8 +8530,16 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             };
 
             bgmAudio.onended = () => {
-                // loop=true时不会触发onended，所以这里一定是列表循环或随机
-                handleTrackEnd();
+                if (loopMode === 'one') {
+                    // 单曲循环：重新播放同一首
+                    bgmAudio.currentTime = 0;
+                    bgmAudio.volume = 0;
+                    bgmAudio.play().then(() => {
+                        fadeInBgm(bgmAudio);
+                    }).catch(e => console.error('单曲循环失败:', e));
+                } else {
+                    handleTrackEnd();
+                }
             };
 
             bgmAudio.onerror = () => {
@@ -8588,7 +8596,6 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         function resumeBgm() {
             if (bgmAudio && bgmIsPaused) {
                 bgmAudio.volume = 0;
-                bgmAudio.loop = (loopMode === 'one');
                 bgmAudio.play().then(() => {
                     isBgmPlaying = true;
                     bgmIsPaused = false;
@@ -8869,11 +8876,6 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             }
             localStorage.setItem('loopMode', loopMode);
             updateLoopModeIcon();
-            
-            // 实时更新当前音频的loop属性
-            if (bgmAudio) {
-                bgmAudio.loop = (loopMode === 'one');
-            }
         }
 
         // 切换音量滑块
@@ -9065,7 +9067,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                 const diff = y - startY;
                 const elapsed = Date.now() - pullStartTime;
                 // 需要下拉超过200px且持续超过600ms
-                if (diff > 200 && elapsed > 600 && getActivePageScrollTop() <= 0) {
+                if (diff > 160 && elapsed > 400 && getActivePageScrollTop() <= 0) {
                     indicator.classList.add('pulling');
                 }
             }, { passive: true });
