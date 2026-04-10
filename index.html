@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>任务管理</title>
     <!-- PWA 支持 -->
     <link rel="manifest" href="manifest.json">
@@ -20,9 +20,13 @@
 
         html {
             height: 100%;
+            width: 100%;
             overflow: hidden;
             position: fixed;
-            width: 100%;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
         }
 
         :root {
@@ -42,12 +46,16 @@
             background: var(--bg-primary);
             color: var(--text-primary);
             height: 100%;
-            overflow-y: auto;
+            width: 100%;
             overflow-x: hidden;
+            overflow-y: auto;
             -webkit-overflow-scrolling: touch;
-            overscroll-behavior-y: none;
-            padding-bottom: 80px;
-            position: relative;
+            overscroll-behavior: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
         }
 
         /* 下拉刷新 */
@@ -96,7 +104,7 @@
             display: none;
             padding: 20px;
             padding-top: 20px;
-            min-height: calc(100vh - 80px);
+            padding-bottom: calc(90px + env(safe-area-inset-bottom));
         }
 
         .page.active {
@@ -1635,7 +1643,8 @@
             bottom: 0;
             left: 0;
             right: 0;
-            height: 70px;
+            height: calc(70px + env(safe-area-inset-bottom));
+            padding-bottom: env(safe-area-inset-bottom);
             background: var(--bg-primary);
             border-top: 1px solid var(--border-color);
             display: flex;
