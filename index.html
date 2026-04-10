@@ -2161,7 +2161,21 @@
             box-sizing: border-box;
         }
 
+        /* 日间模式下日视图任务块按标签着色 */
+        .hour-task-block.label-学习 { background: #22bd3e; }
+        .hour-task-block.label-工作 { background: #f0ef59; }
+        .hour-task-block.label-家务 { background: #1b43d2; }
+        .hour-task-block.label-充电 { background: #513dc5; }
+
         body.dark-theme .hour-task-block {
+            background: #3d3d3d;
+        }
+
+        /* 夜间模式覆盖标签颜色 */
+        body.dark-theme .hour-task-block.label-学习,
+        body.dark-theme .hour-task-block.label-工作,
+        body.dark-theme .hour-task-block.label-家务,
+        body.dark-theme .hour-task-block.label-充电 {
             background: #3d3d3d;
         }
 
@@ -4658,7 +4672,7 @@
                     const startTimeStr = String(t.startH).padStart(2, '0') + ':' + String(t.startM).padStart(2, '0');
                     const endTimeStr = String(t.endH).padStart(2, '0') + ':' + String(t.endM).padStart(2, '0');
                     
-                    taskHtml = `<div class="hour-task-block" style="height:${Math.max(height, 30)}px; top:${topOffset}px;" onclick="editTask('${t.label}', ${t.id}, event)">
+                    taskHtml = `<div class="hour-task-block label-${t.label}" style="height:${Math.max(height, 30)}px; top:${topOffset}px;" onclick="editTask('${t.label}', ${t.id}, event)">
                         <div class="task-block-title">${t.desc}</div>
                         <div class="task-block-time">${startTimeStr} - ${endTimeStr}</div>
                     </div>`;
