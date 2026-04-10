@@ -4,6 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>任务管理</title>
+    <!-- PWA 支持 -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#121212">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="任务管理">
+    <link rel="apple-touch-icon" href="icon-192.svg">
     <style>
         * {
             margin: 0;
@@ -8122,6 +8129,15 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         loadCurrentFocusTask();
         renderDayView();
         renderWeekView();
+
+        // 注册 Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('Service Worker 注册成功:', reg.scope))
+                    .catch(err => console.log('Service Worker 注册失败:', err));
+            });
+        }
     </script>
 </body>
 </html>
