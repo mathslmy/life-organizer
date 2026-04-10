@@ -1347,6 +1347,12 @@
             overflow: hidden;
         }
 
+        #taskForm {
+            width: 100%;
+            max-width: 100%;
+            overflow: hidden;
+        }
+
         .form-label {
             display: block;
             font-size: 14px;
@@ -1363,6 +1369,13 @@
             font-family: inherit;
             box-sizing: border-box;
             -webkit-appearance: none;
+        }
+
+        /* 专门修复iOS Safari datetime-local输入框溢出问题 */
+        input[type="datetime-local"].form-input {
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
         }
 
         .form-input:focus {
@@ -1398,6 +1411,7 @@
             display: flex;
             gap: 8px;
             flex-wrap: wrap;
+            max-width: 100%;
         }
 
         .form-actions .form-btn {
@@ -1410,6 +1424,8 @@
         .task-actions-row {
             display: flex;
             gap: 8px;
+            max-width: 100%;
+            overflow: hidden;
         }
 
         .delete-task-btn {
@@ -2016,6 +2032,7 @@
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
+            max-width: 100%;
         }
 
         .time-block {
