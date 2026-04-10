@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>任务管理</title>
     <!-- PWA 支持 -->
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="manifest.json?v=2">
     <meta name="theme-color" content="#121212">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -2597,9 +2600,9 @@
                     <span>🎵 BGM 设置</span>
                     <span id="bgmCount" style="font-size: 12px; color: var(--text-muted);"></span>
                 </div>
-                <span class="bgm-toggle" id="bgmToggle">›</span>
+                <span class="bgm-toggle expanded" id="bgmToggle">›</span>
             </div>
-            <div class="bgm-list-wrapper" id="bgmListWrapper">
+            <div class="bgm-list-wrapper expanded" id="bgmListWrapper">
                 <div class="bgm-list" id="bgmList">
                     <!-- 动态生成BGM列表 -->
                 </div>
@@ -7788,13 +7791,18 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
 
         // 初始化BGM列表展开状态
         function initBgmListState() {
-            const isExpanded = localStorage.getItem('bgmListExpanded') !== 'false';
+            const isExpanded = localStorage.getItem('bgmListExpanded') !== 'false'; // 默认展开
             const wrapper = document.getElementById('bgmListWrapper');
             const toggle = document.getElementById('bgmToggle');
             
-            if (wrapper && toggle && isExpanded) {
-                wrapper.classList.add('expanded');
-                toggle.classList.add('expanded');
+            if (wrapper && toggle) {
+                if (isExpanded) {
+                    wrapper.classList.add('expanded');
+                    toggle.classList.add('expanded');
+                } else {
+                    wrapper.classList.remove('expanded');
+                    toggle.classList.remove('expanded');
+                }
             }
         }
 
@@ -8286,11 +8294,27 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         renderDayView();
         renderWeekView();
 
-        // 注册 Service Worker
+        // 注册 Service Worker 并强制更新
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
+            window.addEventListener('load', async () => {
+                // 先清除旧缓存
+                if ('caches' in window) {
+                    const cacheNames = await caches.keys();
+                    await Promise.all(cacheNames.map(name => caches.delete(name)));
+                }
+                
+                // 注销旧的 Service Worker
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                for (const registration of registrations) {
+                    await registration.unregister();
+                }
+                
+                // 重新注册
                 navigator.serviceWorker.register('sw.js')
-                    .then(reg => console.log('Service Worker 注册成功:', reg.scope))
+                    .then(reg => {
+                        console.log('Service Worker 注册成功:', reg.scope);
+                        reg.update(); // 强制检查更新
+                    })
                     .catch(err => console.log('Service Worker 注册失败:', err));
             });
         }
