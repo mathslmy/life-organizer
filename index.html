@@ -3562,9 +3562,9 @@
             hideModal('taskModal');
         }
 
-        let saveHistory = function() {
+        function saveHistory() {
             localStorage.setItem('taskHistory', JSON.stringify(taskHistory));
-        };
+        }
 
         function loadHistory() {
             const saved = localStorage.getItem('taskHistory');
@@ -6767,23 +6767,9 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             const existing = await supabaseRequest('history', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
             
             if (existing && existing.length > 0) {
-                await supabaseRequest('history', 'PATCH', { data: taskHistory }, `?user_id=eq.${encodeURIComponent(userId)}`);
+                await supabaseRequest('history', 'PATCH', { data: history }, `?user_id=eq.${encodeURIComponent(userId)}`);
             } else {
-                await supabaseRequest('history', 'POST', { user_id: userId, data: taskHistory });
-            }
-        }
-
-        // 从云端拉取历史记录
-        async function pullHistoryFromCloud() {
-            const url = localStorage.getItem('supabaseUrl');
-            if (!url) return;
-            
-            const userId = getUserId();
-            const result = await supabaseRequest('history', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
-            
-            if (result && result.length > 0 && result[0].data) {
-                taskHistory = result[0].data;
-                localStorage.setItem('taskHistory', JSON.stringify(taskHistory));
+                await supabaseRequest('history', 'POST', { user_id: userId, data: history });
             }
         }
 
@@ -6986,14 +6972,6 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             _originalSaveTasks();
             clearTimeout(window._syncTimeout);
             window._syncTimeout = setTimeout(syncTasksToCloud, 2000);
-        };
-
-        // 重写saveHistory以自动同步
-        const _originalSaveHistory = saveHistory;
-        saveHistory = function() {
-            _originalSaveHistory();
-            clearTimeout(window._syncHistoryTimeout);
-            window._syncHistoryTimeout = setTimeout(syncHistoryToCloud, 2000);
         };
 
         // 手动同步
@@ -7259,7 +7237,6 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             setTimeout(addSyncSettingsUI, 200);
             if (localStorage.getItem('supabaseUrl')) {
                 await pullTasksFromCloud();
-                await pullHistoryFromCloud();
                 await pullUserSettingsFromCloud();
             }
             // 初始化BGM模块
@@ -7271,7 +7248,6 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             if (document.visibilityState === 'visible' && localStorage.getItem('supabaseUrl')) {
                 setTimeout(() => {
                     pullTasksFromCloud();
-                    pullHistoryFromCloud();
                     pullUserSettingsFromCloud();
                 }, 100);
             }
