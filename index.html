@@ -644,6 +644,15 @@
             display: block;
         }
 
+        /* iOS PWA 减小底部间距 */
+        @supports (-webkit-touch-callout: none) {
+            @media (display-mode: standalone) {
+                #page3 {
+                    padding-bottom: 0;
+                }
+            }
+        }
+
         /* 完整播放器 */
         .music-player-full {
             padding: 4px 12px;
