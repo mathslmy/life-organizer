@@ -85,7 +85,6 @@
             padding: 20px;
             padding-top: 20px;
             min-height: calc(100vh - 80px);
-            min-height: calc(-webkit-fill-available - 80px);
         }
 
         .page.active {
@@ -643,6 +642,19 @@
 
         body.page3-active .music-player-mini {
             display: block;
+        }
+
+        /* iOS PWA 安全区域适配 */
+        @supports (padding-bottom: env(safe-area-inset-bottom)) {
+            body {
+                padding-bottom: calc(80px + env(safe-area-inset-bottom));
+            }
+            .bottom-nav {
+                padding-bottom: env(safe-area-inset-bottom);
+            }
+            .music-player-mini {
+                bottom: calc(70px + env(safe-area-inset-bottom));
+            }
         }
 
         /* 完整播放器 */
