@@ -3,12 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
     <title>任务管理</title>
     <!-- PWA 支持 -->
-    <link rel="manifest" href="manifest.json?v=2">
+    <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#121212">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -574,60 +571,23 @@
         }
 
         /* BGM选择列表样式 */
-        .bgm-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 16px 20px 12px;
-            cursor: pointer;
-        }
-
-        .bgm-header-left {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .bgm-toggle {
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            color: var(--text-muted);
-            transition: transform 0.3s;
-        }
-
-        .bgm-toggle.expanded {
-            transform: rotate(90deg);
-        }
-
-        .bgm-list-wrapper {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.3s ease-out;
-        }
-
-        .bgm-list-wrapper.expanded {
-            max-height: 500px;
-        }
-
         .bgm-list {
             display: flex;
             flex-direction: column;
-            gap: 4px;
-            padding: 0 20px 12px;
+            gap: 8px;
+            padding: 12px 20px 20px;
+            max-height: 240px;
+            overflow-y: auto;
         }
 
         .bgm-item {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 10px 12px;
+            padding: 14px 16px;
             background: var(--bg-primary);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
             cursor: pointer;
             transition: all 0.2s;
         }
@@ -642,22 +602,21 @@
         }
 
         .bgm-item-name {
-            font-size: 14px;
+            font-size: 15px;
             font-weight: 500;
         }
 
         .bgm-item-check {
-            width: 18px;
-            height: 18px;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
             border: 2px solid var(--border-color);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 10px;
+            font-size: 12px;
             color: transparent;
             transition: all 0.2s;
-            flex-shrink: 0;
         }
 
         .bgm-item.selected .bgm-item-check {
@@ -2595,17 +2554,9 @@
         </div>
 
         <div class="settings-group">
-            <div class="bgm-header" onclick="toggleBgmList()">
-                <div class="bgm-header-left">
-                    <span>🎵 BGM 设置</span>
-                    <span id="bgmCount" style="font-size: 12px; color: var(--text-muted);"></span>
-                </div>
-                <span class="bgm-toggle expanded" id="bgmToggle">›</span>
-            </div>
-            <div class="bgm-list-wrapper expanded" id="bgmListWrapper">
-                <div class="bgm-list" id="bgmList">
-                    <!-- 动态生成BGM列表 -->
-                </div>
+            <div class="section-label" style="padding: 16px 20px 12px;">🎵 BGM 设置</div>
+            <div class="bgm-list" id="bgmList">
+                <!-- 动态生成BGM列表 -->
             </div>
             <div class="settings-item" onclick="refreshBgmList()">
                 <span class="settings-item-label" style="color: var(--accent);">🔄 刷新BGM列表</span>
@@ -7772,56 +7723,16 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             currentBgmIndex = index;
         }
 
-        // 切换BGM列表展开/折叠
-        function toggleBgmList() {
-            const wrapper = document.getElementById('bgmListWrapper');
-            const toggle = document.getElementById('bgmToggle');
-            const isExpanded = wrapper.classList.contains('expanded');
-            
-            if (isExpanded) {
-                wrapper.classList.remove('expanded');
-                toggle.classList.remove('expanded');
-                localStorage.setItem('bgmListExpanded', 'false');
-            } else {
-                wrapper.classList.add('expanded');
-                toggle.classList.add('expanded');
-                localStorage.setItem('bgmListExpanded', 'true');
-            }
-        }
-
-        // 初始化BGM列表展开状态
-        function initBgmListState() {
-            const isExpanded = localStorage.getItem('bgmListExpanded') !== 'false'; // 默认展开
-            const wrapper = document.getElementById('bgmListWrapper');
-            const toggle = document.getElementById('bgmToggle');
-            
-            if (wrapper && toggle) {
-                if (isExpanded) {
-                    wrapper.classList.add('expanded');
-                    toggle.classList.add('expanded');
-                } else {
-                    wrapper.classList.remove('expanded');
-                    toggle.classList.remove('expanded');
-                }
-            }
-        }
-
         // 渲染BGM列表到设置页面
         function renderBgmList() {
             const container = document.getElementById('bgmList');
-            const countEl = document.getElementById('bgmCount');
             if (!container) return;
-            
-            // 更新数量显示
-            if (countEl) {
-                countEl.textContent = bgmList.length > 0 ? `(${bgmList.length})` : '';
-            }
             
             if (bgmList.length === 0) {
                 container.innerHTML = `
-                    <div style="padding: 12px; text-align: center; color: var(--text-muted); font-size: 13px;">
+                    <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 14px;">
                         暂无BGM<br>
-                        <span style="font-size: 11px;">请在Supabase Storage创建 bgm bucket并上传音频文件</span>
+                        <span style="font-size: 12px;">请在Supabase Storage创建 bgm bucket并上传音频文件</span>
                     </div>
                 `;
                 return;
@@ -7835,9 +7746,6 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                     <span class="bgm-item-check">✓</span>
                 </div>
             `).join('');
-            
-            // 初始化展开状态
-            initBgmListState();
         }
 
         // 选择BGM
@@ -8294,27 +8202,11 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         renderDayView();
         renderWeekView();
 
-        // 注册 Service Worker 并强制更新
+        // 注册 Service Worker
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', async () => {
-                // 先清除旧缓存
-                if ('caches' in window) {
-                    const cacheNames = await caches.keys();
-                    await Promise.all(cacheNames.map(name => caches.delete(name)));
-                }
-                
-                // 注销旧的 Service Worker
-                const registrations = await navigator.serviceWorker.getRegistrations();
-                for (const registration of registrations) {
-                    await registration.unregister();
-                }
-                
-                // 重新注册
+            window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js')
-                    .then(reg => {
-                        console.log('Service Worker 注册成功:', reg.scope);
-                        reg.update(); // 强制检查更新
-                    })
+                    .then(reg => console.log('Service Worker 注册成功:', reg.scope))
                     .catch(err => console.log('Service Worker 注册失败:', err));
             });
         }
