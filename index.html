@@ -1279,6 +1279,24 @@
             cursor: pointer;
         }
 
+        .focus-chat-export-btn {
+            padding: 6px 12px;
+            border-radius: 8px;
+            background: var(--bg-secondary);
+            border: none;
+            font-size: 13px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            margin-left: auto;
+            margin-right: 8px;
+            transition: all 0.2s;
+        }
+
+        .focus-chat-export-btn:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
         .ai-modal-greeting {
             font-size: 18px;
             margin-bottom: 24px;
@@ -2543,6 +2561,7 @@
         <div class="modal-content chat-modal" onclick="event.stopPropagation()">
             <div class="modal-header">
                 <span class="modal-title" id="focusChatTitle">专注助手</span>
+                <button class="focus-chat-export-btn" onclick="exportFocusChatHistory()" title="导出聊天记录">导出</button>
                 <button class="modal-close" onclick="hideModal('focusChatModal')">×</button>
             </div>
             <div class="chat-container" id="focusChatContainer">
@@ -5043,6 +5062,40 @@
             // 同时从localStorage删除
             const key = 'focusChat_' + desc;
             localStorage.removeItem(key);
+        }
+
+        function exportFocusChatHistory() {
+            const history = loadFocusChatHistory();
+            if (!history || history.length === 0) {
+                alert('暂无聊天记录可导出');
+                return;
+            }
+            
+            const exportData = {
+                taskName: currentFocusTask ? currentFocusTask.desc : '未知任务',
+                taskLabel: currentFocusTask ? currentFocusTask.label : '',
+                exportTime: new Date().toISOString(),
+                messageCount: history.length,
+                messages: history.map((msg, index) => ({
+                    index: index + 1,
+                    role: msg.role,
+                    content: msg.content,
+                    timestamp: msg.timestamp || null
+                }))
+            };
+            
+            const jsonStr = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            const fileName = `聊天记录_${exportData.taskName}_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.json`;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
 
         function renderFocusChatHistory() {
