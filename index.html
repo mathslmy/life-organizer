@@ -1166,6 +1166,76 @@
             border-color: #3d3d3d;
         }
 
+        /* API设置和任务编辑界面 - 暗色模式 */
+        body.dark-theme .form-select {
+            background: #2d2d2d;
+            color: #ffffff;
+            border-color: #3d3d3d;
+        }
+
+        body.dark-theme .form-input {
+            background: #2d2d2d;
+            color: #ffffff;
+            border-color: #3d3d3d;
+        }
+
+        body.dark-theme .form-input::placeholder {
+            color: #707070;
+        }
+
+        /* 主要按钮 - 保存/创建/添加任务等 */
+        body.dark-theme .form-btn {
+            background: #ffffff;
+            color: #000000;
+        }
+
+        /* 删除按钮保持红色 */
+        body.dark-theme .form-btn.delete-task-btn {
+            background: #ef4444;
+            color: #ffffff;
+        }
+
+        /* 完成按钮保持绿色 */
+        body.dark-theme .form-btn.complete-btn {
+            background: #22c55e;
+            color: #ffffff;
+        }
+
+        /* 放弃按钮保持灰色 */
+        body.dark-theme .form-btn.abandon-btn {
+            background: #6b7280;
+            color: #ffffff;
+        }
+
+        /* 重新生成按钮 */
+        body.dark-theme .form-btn.batch-regenerate {
+            background: #3d3d3d !important;
+            color: #ffffff !important;
+            border-color: #4d4d4d !important;
+        }
+
+        /* 拉取模型按钮 */
+        body.dark-theme .fetch-models-btn {
+            background: #3d3d3d;
+            color: #ffffff;
+            border-color: #4d4d4d;
+        }
+
+        body.dark-theme .fetch-models-btn:hover {
+            background: #4d4d4d;
+        }
+
+        /* 时间块选择器 */
+        body.dark-theme .time-block {
+            background: #2d2d2d;
+            color: #ffffff;
+        }
+
+        body.dark-theme .time-block.active {
+            background: #ffffff;
+            color: #000000;
+        }
+
         .ai-remind-list {
             padding: 0 20px;
         }
@@ -5329,54 +5399,14 @@
         async function callAIAPIWithMessages(apiSettings, systemPrompt, messages) {
             const { provider, url, key, model } = apiSettings;
             
-            // 检测是否是Claude渠道
-            const isClaude = provider === 'claude' || 
-                             url.includes('anthropic.com') || 
-                             (model && model.includes('claude'));
-            
-            let requestBody;
-            
-            if (isClaude) {
-                // Claude渠道：将system合并到第一条user消息
-                const processedMessages = [...messages];
-                
-                if (processedMessages.length > 0 && processedMessages[0].role === 'user') {
-                    processedMessages[0] = {
-                        role: 'user',
-                        content: `${systemPrompt}\n\n${processedMessages[0].content}`
-                    };
-                } else {
-                    processedMessages.unshift({
-                        role: 'user',
-                        content: systemPrompt
-                    });
-                }
-                
-                // 确保最后一条是user
-                if (processedMessages[processedMessages.length - 1].role !== 'user') {
-                    processedMessages.push({ role: 'user', content: '请继续' });
-                }
-                
-                requestBody = {
-                    messages: processedMessages,
-                    model: model,
-                    temperature: 1,
-                    max_tokens: 8192,
-                    stream: true,
-                    presence_penalty: 0,
-                    frequency_penalty: 0,
-                    top_p: 0.99
-                };
-            } else {
-                requestBody = {
-                    model: model,
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        ...messages
-                    ],
-                    max_tokens: 1000
-                };
-            }
+            const requestBody = {
+                model: model,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    ...messages
+                ],
+                max_tokens: 1000
+            };
             
             const response = await fetch(url + '/chat/completions', {
                 method: 'POST',
@@ -5471,47 +5501,20 @@
                 apiUrl += '/chat/completions';
             }
             
-            // 检测是否是Claude渠道
-            const isClaude = apiConfig.provider === 'claude' || 
-                             apiUrl.includes('anthropic.com') || 
-                             (apiConfig.model && apiConfig.model.includes('claude'));
-            
-            // 构建请求体
-            let requestBody;
-            
-            if (isClaude) {
-                // Claude渠道
-                requestBody = {
-                    messages: [
-                        { role: 'user', content: `${systemPrompt}\n\n${userInput}` }
-                    ],
-                    model: apiConfig.model,
-                    temperature: 1,
-                    max_tokens: 8192,
-                    stream: true,
-                    presence_penalty: 0,
-                    frequency_penalty: 0,
-                    top_p: 0.99
-                };
-            } else {
-                // 其他渠道：正常使用system和user
-                requestBody = {
-                    model: apiConfig.model,
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        { role: 'user', content: userInput }
-                    ],
-                    temperature: 0.7
-                };
-            }
-            
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${apiConfig.key}`
                 },
-                body: JSON.stringify(requestBody)
+                body: JSON.stringify({
+                    model: apiConfig.model,
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userInput }
+                    ],
+                    temperature: 0.7
+                })
             });
             
             if (!response.ok) {
