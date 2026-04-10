@@ -584,7 +584,7 @@
             overflow: visible;
         }
 
-        /* 小黑条 - 固定在屏幕底部导航栏上方 */
+        /* 小黑条 - 固定在底部导航栏上方，只在page3显示 */
         .music-player-mini {
             position: fixed;
             bottom: 70px;
@@ -596,6 +596,11 @@
             width: 50px;
             cursor: pointer;
             z-index: 100;
+            display: none;
+        }
+
+        body.page3-active .music-player-mini {
+            display: block;
         }
 
         /* 完整播放器 */
@@ -3329,6 +3334,13 @@
             
             document.getElementById('page' + num).classList.add('active');
             document.querySelectorAll('.nav-item')[num - 1].classList.add('active');
+            
+            // 控制迷你条只在page3显示
+            if (num === 3) {
+                document.body.classList.add('page3-active');
+            } else {
+                document.body.classList.remove('page3-active');
+            }
         }
 
         // View switching (Page 2)
