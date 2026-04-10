@@ -572,10 +572,12 @@
 
         /* BGM选择列表样式 */
         .bgm-list {
-            display: block;
-            padding: 12px 20px 20px;
-            height: 200px;
-            overflow-y: scroll;
+            display: block !important;
+            padding: 12px 20px 20px !important;
+            height: 200px !important;
+            max-height: 200px !important;
+            overflow-y: scroll !important;
+            overflow-x: hidden !important;
         }
 
         .bgm-item {
