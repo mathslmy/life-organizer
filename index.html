@@ -5649,13 +5649,21 @@
                 const timeInfo = getAvailableTimeInfo();
                 const currentTime = getCurrentDateTime();
                 
-                // 构建任务列表描述
+                // 构建任务列表描述（将UTC时间转换为本地时间格式）
                 const taskDescriptions = incompleteTasks.map(t => {
                     let desc = `任务: "${t.desc}", 标签: ${t.label}`;
                     if (t.subject) desc += `, 课题: ${t.subject}`;
-                    if (t.ddl) desc += `, DDL: ${t.ddl}`;
+                    if (t.ddl) {
+                        // 将ISO UTC时间转换为本地时间格式显示给AI
+                        const localDdl = toLocalDatetime(t.ddl);
+                        desc += `, DDL: ${localDdl}`;
+                    }
                     if (t.estimate) desc += `, 预估时间: ${t.estimate}分钟`;
-                    if (t.startTime) desc += `, 开始时间: ${t.startTime}`;
+                    if (t.startTime) {
+                        // 将ISO UTC时间转换为本地时间格式显示给AI
+                        const localStartTime = toLocalDatetime(t.startTime);
+                        desc += `, 开始时间: ${localStartTime}`;
+                    }
                     
                     const missing = [];
                     if (t.missingFields.ddl) missing.push('DDL');
@@ -5689,19 +5697,12 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
   "reminder": "提醒时间(格式: YYYY-MM-DDTHH:MM)"
 }
 
-【重要】已有属性禁止变更规则：
-1. 任务描述(desc)、标签(label)、原任务ID(originalId) 必须完全保持原样，禁止修改
-2. 如果任务已有 DDL，必须原样保留该 DDL，禁止更改
-3. 如果任务已有预估时间(estimate)，必须原样保留，禁止更改
-4. 如果任务已有开始时间(startTime)，必须原样保留，禁止更改
-5. 如果任务已有课题(subject)，必须原样保留，禁止更改
-6. 只能补全标注为"需补全"的字段，其他已有字段一律禁止修改
-
-其他注意事项：
-1. 若标签为"学习"且课题为空，必须根据任务描述推断合适的课题名称
-2. 合理安排时间，避免与已有任务冲突
-3. 根据任务性质推断合理的时间安排
-4. 只返回JSON数组，不要有其他文字`;
+注意：
+1. 保持任务描述、标签不变
+2. 若标签为"学习"且课题为空，必须根据任务描述推断合适的课题名称
+3. 合理安排时间，避免与已有任务冲突
+4. 根据任务性质推断合理的时间安排
+5. 只返回JSON数组，不要有其他文字`;
 
                 let content;
                 try {
