@@ -3564,6 +3564,9 @@
 
         function saveHistory() {
             localStorage.setItem('taskHistory', JSON.stringify(taskHistory));
+            // 延迟同步到云端（防止频繁调用）
+            clearTimeout(window._historyyncTimeout);
+            window._historyyncTimeout = setTimeout(syncHistoryToCloud, 2000);
         }
 
         function loadHistory() {
@@ -6761,15 +6764,82 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         // 同步历史
         async function syncHistoryToCloud() {
             const url = localStorage.getItem('supabaseUrl');
-            if (!url) return;
+            const key = localStorage.getItem('supabaseKey');
+            if (!url || !key) return;
             
             const userId = getUserId();
-            const existing = await supabaseRequest('history', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
             
-            if (existing && existing.length > 0) {
-                await supabaseRequest('history', 'PATCH', { data: history }, `?user_id=eq.${encodeURIComponent(userId)}`);
-            } else {
-                await supabaseRequest('history', 'POST', { user_id: userId, data: history });
+            try {
+                // 使用 upsert，指定 user_id 为冲突列
+                const upsertUrl = `${url}/rest/v1/history?on_conflict=user_id`;
+                const res = await fetch(upsertUrl, {
+                    method: 'POST',
+                    headers: {
+                        'apikey': key,
+                        'Authorization': `Bearer ${key}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'resolution=merge-duplicates'
+                    },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        data: taskHistory,
+                        updated_at: new Date().toISOString()
+                    })
+                });
+                
+                if (!res.ok) {
+                    const errText = await res.text();
+                    console.error(`同步压箱底失败\n状态: ${res.status}\n\n${errText}`);
+                }
+            } catch (e) {
+                console.error(`同步压箱底异常: ${e.message}`);
+            }
+        }
+
+        // 从云端拉取压箱底数据
+        async function pullHistoryFromCloud() {
+            const url = localStorage.getItem('supabaseUrl');
+            const key = localStorage.getItem('supabaseKey');
+            if (!url || !key) return;
+            
+            const userId = getUserId();
+            
+            try {
+                const result = await supabaseRequest('history', 'GET', null, `?user_id=eq.${encodeURIComponent(userId)}`);
+                
+                if (result && result.length > 0 && result[0].data) {
+                    const cloudHistory = result[0].data;
+                    
+                    // 合并云端和本地数据（去重）
+                    const localHistory = taskHistory || [];
+                    const mergedMap = new Map();
+                    
+                    // 先加入云端数据
+                    cloudHistory.forEach(item => {
+                        const key = `${item.name}_${item.completedAt || item.abandonedAt}`;
+                        mergedMap.set(key, item);
+                    });
+                    
+                    // 再加入本地数据（如果有新的）
+                    localHistory.forEach(item => {
+                        const key = `${item.name}_${item.completedAt || item.abandonedAt}`;
+                        if (!mergedMap.has(key)) {
+                            mergedMap.set(key, item);
+                        }
+                    });
+                    
+                    // 转换回数组并按时间排序
+                    taskHistory = Array.from(mergedMap.values()).sort((a, b) => {
+                        const timeA = new Date(a.completedAt || a.abandonedAt || 0);
+                        const timeB = new Date(b.completedAt || b.abandonedAt || 0);
+                        return timeB - timeA;
+                    });
+                    
+                    // 保存到本地
+                    localStorage.setItem('taskHistory', JSON.stringify(taskHistory));
+                }
+            } catch (e) {
+                console.error(`拉取压箱底失败: ${e.message}`);
             }
         }
 
@@ -7237,6 +7307,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             setTimeout(addSyncSettingsUI, 200);
             if (localStorage.getItem('supabaseUrl')) {
                 await pullTasksFromCloud();
+                await pullHistoryFromCloud();
                 await pullUserSettingsFromCloud();
             }
             // 初始化BGM模块
@@ -7248,6 +7319,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             if (document.visibilityState === 'visible' && localStorage.getItem('supabaseUrl')) {
                 setTimeout(() => {
                     pullTasksFromCloud();
+                    pullHistoryFromCloud();
                     pullUserSettingsFromCloud();
                 }, 100);
             }
