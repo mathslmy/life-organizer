@@ -570,23 +570,9 @@
             50% { transform: scale(1.05); }
         }
 
-        /* BGM选择列表样式 */
-        .bgm-settings-group {
-            overflow: visible;
-        }
-
-        .bgm-scroll-container {
-            height: 200px;
-            overflow-y: scroll;
-            -webkit-overflow-scrolling: touch;
-            padding: 0 20px;
-        }
-
+        /* BGM选择列表样式 - 高度和滚动由JS内联style控制 */
         .bgm-list {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            padding: 12px 0 20px;
+            padding: 12px 20px 20px;
         }
 
         .bgm-item {
@@ -798,6 +784,10 @@
             border-radius: 16px;
             margin-bottom: 16px;
             overflow: hidden;
+        }
+
+        .settings-group.bgm-settings-group {
+            overflow: unset;
         }
 
         .settings-item {
@@ -2567,12 +2557,10 @@
             </div>
         </div>
 
-        <div class="settings-group" style="overflow:visible !important;">
+        <div class="settings-group bgm-settings-group">
             <div class="section-label" style="padding: 16px 20px 12px;">🎵 BGM 设置</div>
-            <div id="bgmScrollContainer" style="height:200px;overflow-y:scroll;-webkit-overflow-scrolling:touch;padding:0 20px;">
-                <div class="bgm-list" id="bgmList">
-                    <!-- 动态生成BGM列表 -->
-                </div>
+            <div class="bgm-list" id="bgmList">
+                <!-- 动态生成BGM列表 -->
             </div>
             <div class="settings-item" onclick="refreshBgmList()">
                 <span class="settings-item-label" style="color: var(--accent);">🔄 刷新BGM列表</span>
@@ -7745,6 +7733,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             if (!container) return;
             
             if (bgmList.length === 0) {
+                container.removeAttribute('style');
                 container.innerHTML = `
                     <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 14px;">
                         暂无BGM<br>
@@ -7762,6 +7751,41 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                     <span class="bgm-item-check">✓</span>
                 </div>
             `).join('');
+
+            // 渲染完成后，用JS直接设置内联样式，确保滚动生效
+            if (bgmList.length > 4) {
+                container.style.cssText = 'height:280px; overflow-y:scroll; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; padding:12px 20px 20px;';
+                initBgmListTouch(container);
+            } else {
+                container.style.cssText = 'padding:12px 20px 20px;';
+            }
+        }
+
+        // 关键：在触摸滚动时阻止事件冒泡到外层页面，让列表内部滚动生效
+        function initBgmListTouch(el) {
+            if (el._bgmTouchInited) return;
+            el._bgmTouchInited = true;
+
+            el.addEventListener('touchstart', function(e) {
+                this._startY = e.touches[0].pageY;
+                this._startScrollTop = this.scrollTop;
+            }, { passive: true });
+
+            el.addEventListener('touchmove', function(e) {
+                const dy = e.touches[0].pageY - this._startY;
+                const scrollTop = this.scrollTop;
+                const scrollHeight = this.scrollHeight;
+                const clientHeight = this.clientHeight;
+
+                // 如果在顶部往下拉，或底部往上拉，不阻止（让外层页面滚动）
+                // 否则阻止冒泡，让列表自己滚动
+                const atTop = scrollTop <= 0 && dy > 0;
+                const atBottom = scrollTop + clientHeight >= scrollHeight && dy < 0;
+
+                if (!atTop && !atBottom) {
+                    e.stopPropagation();
+                }
+            }, { passive: false });
         }
 
         // 选择BGM
