@@ -2791,7 +2791,7 @@
                     <input type="range" class="timer-slider" id="timerSlider" min="0" max="100" value="0" oninput="onTimerSliderChange(this.value)">
                     <div class="timer-display-inline" id="timerDisplay">25:00</div>
                 </div>
-                <button class="bgm-btn" id="bgmBtn">BGM</button>
+                <button class="bgm-btn" id="bgmBtn" style="display:none;">BGM</button>
             </div>
             <div class="time-presets">
                 <button class="time-preset" onclick="setTimer(-1)">正计时</button>
@@ -8513,7 +8513,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         // 开始播放新BGM（内部函数）
         function startNewBgm(bgm) {
             bgmAudio = new Audio(bgm.url);
-            bgmAudio.loop = false;
+            bgmAudio.loop = (loopMode === 'one');
             bgmAudio.volume = 0;
             
             bgmAudio.oncanplaythrough = () => {
@@ -8523,10 +8523,6 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                     updateBgmButton();
                     showSyncStatus(`正在播放: ${bgm.name}`);
                     fadeInBgm(bgmAudio);
-                    // 单曲循环用原有的loopCheck无缝衔接，列表循环和随机用onended
-                    if (loopMode === 'one') {
-                        startLoopCheck(bgmAudio, bgm.url);
-                    }
                 }).catch(e => {
                     console.error('播放失败:', e);
                     showSyncStatus('播放失败，请重试');
@@ -8534,7 +8530,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             };
 
             bgmAudio.onended = () => {
-                if (loopMode === 'one') return; // 单曲循环由loopCheck处理
+                // loop=true时不会触发onended，所以这里一定是列表循环或随机
                 handleTrackEnd();
             };
 
@@ -8592,17 +8588,14 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         function resumeBgm() {
             if (bgmAudio && bgmIsPaused) {
                 bgmAudio.volume = 0;
+                bgmAudio.loop = (loopMode === 'one');
                 bgmAudio.play().then(() => {
                     isBgmPlaying = true;
                     bgmIsPaused = false;
                     updateBgmButton();
                     fadeInBgm(bgmAudio);
-                    // 单曲循环时重新启动循环检测
                     const activeList = getActiveBgmList();
                     const bgm = activeList[currentBgmIndex];
-                    if (loopMode === 'one' && bgm && bgm.url) {
-                        startLoopCheck(bgmAudio, bgm.url);
-                    }
                     showSyncStatus(`继续播放: ${bgm?.name || 'BGM'}`);
                 }).catch(e => {
                     console.error('恢复播放失败:', e);
@@ -8864,9 +8857,6 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
 
         // 切换循环模式
         function toggleLoopMode() {
-            // 切换前先停掉旧的循环检测
-            stopLoopCheck();
-            
             if (loopMode === 'all') {
                 loopMode = 'one';
                 showSyncStatus('单曲循环');
@@ -8880,13 +8870,9 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             localStorage.setItem('loopMode', loopMode);
             updateLoopModeIcon();
             
-            // 如果正在播放，根据新模式调整
-            if (isBgmPlaying && bgmAudio) {
-                const activeList = getActiveBgmList();
-                const bgm = activeList[currentBgmIndex];
-                if (loopMode === 'one' && bgm && bgm.url) {
-                    startLoopCheck(bgmAudio, bgm.url);
-                }
+            // 实时更新当前音频的loop属性
+            if (bgmAudio) {
+                bgmAudio.loop = (loopMode === 'one');
             }
         }
 
@@ -9058,11 +9044,18 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             const indicator = document.getElementById('pullRefreshIndicator');
             let startY = 0;
             let pulling = false;
+            let pullStartTime = 0;
+
+            function getActivePageScrollTop() {
+                const activePage = document.querySelector('.page.active');
+                return activePage ? activePage.scrollTop : 0;
+            }
 
             document.addEventListener('touchstart', function(e) {
-                if (window.scrollY === 0) {
+                if (getActivePageScrollTop() <= 0) {
                     startY = e.touches[0].pageY;
                     pulling = true;
+                    pullStartTime = Date.now();
                 }
             }, { passive: true });
 
@@ -9070,7 +9063,9 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                 if (!pulling) return;
                 const y = e.touches[0].pageY;
                 const diff = y - startY;
-                if (diff > 150 && window.scrollY === 0) {
+                const elapsed = Date.now() - pullStartTime;
+                // 需要下拉超过200px且持续超过600ms
+                if (diff > 200 && elapsed > 600 && getActivePageScrollTop() <= 0) {
                     indicator.classList.add('pulling');
                 }
             }, { passive: true });
