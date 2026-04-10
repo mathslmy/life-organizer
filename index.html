@@ -3562,9 +3562,9 @@
             hideModal('taskModal');
         }
 
-        function saveHistory() {
+        let saveHistory = function() {
             localStorage.setItem('taskHistory', JSON.stringify(taskHistory));
-        }
+        };
 
         function loadHistory() {
             const saved = localStorage.getItem('taskHistory');
