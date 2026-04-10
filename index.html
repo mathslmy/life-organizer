@@ -483,6 +483,8 @@
         #page3 {
             padding-top: 10px;
             padding-bottom: 2px;
+            display: flex;
+            flex-direction: column;
         }
 
         .focus-current {
@@ -985,11 +987,15 @@
 
         .thoughts-section {
             margin-bottom: 24px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
         }
 
         .thoughts-textarea {
             width: 100%;
-            height: 120px;
+            flex: 1;
+            min-height: 80px;
             border: 1px solid var(--border-color);
             border-radius: 12px;
             padding: 16px;
