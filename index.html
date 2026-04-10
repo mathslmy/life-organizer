@@ -1297,10 +1297,17 @@
             display: flex;
             gap: 16px;
             padding: 16px 20px;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+
+        .theme-options::-webkit-scrollbar {
+            display: none;
         }
 
         .theme-option {
-            flex: 1;
+            flex: 0 0 auto;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -1330,6 +1337,62 @@
 
         .theme-preview.dark {
             background: linear-gradient(180deg, #1a1a1a 50%, #2d2d2d 50%);
+        }
+
+        .theme-toggle {
+            width: 64px;
+            height: 30px;
+            border-radius: 15px;
+            background: var(--bg-tertiary);
+            position: relative;
+            cursor: pointer;
+            border: 1px solid var(--border-color);
+            transition: background 0.3s;
+        }
+
+        .theme-toggle-label {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 12px;
+            font-weight: 600;
+            z-index: 1;
+            pointer-events: none;
+            transition: color 0.3s;
+        }
+
+        .theme-toggle-day {
+            left: 14px;
+            color: #fff;
+        }
+
+        .theme-toggle-night {
+            left: 48px;
+            color: var(--text-muted);
+        }
+
+        .theme-toggle-thumb {
+            position: absolute;
+            top: 1px;
+            left: 1px;
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: var(--accent);
+            transition: left 0.3s;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+        }
+
+        body.dark-theme .theme-toggle-day {
+            color: var(--text-muted);
+        }
+
+        body.dark-theme .theme-toggle-night {
+            color: #fff;
+        }
+
+        body.dark-theme .theme-toggle-thumb {
+            left: 35px;
         }
 
         .theme-option span {
@@ -1447,6 +1510,161 @@
             --accent: #ffffff;
             --shadow: 0 2px 8px rgba(0,0,0,0.3);
         }
+
+        /* ===== 蓝调 亮 ===== */
+        body.theme-blue:not(.dark-theme) {
+            --bg-primary: #f0f4f8;
+            --bg-secondary: #dbe4ee;
+            --bg-tertiary: #c5d3e3;
+            --text-primary: #1b2a4a;
+            --text-secondary: #4a6385;
+            --text-muted: #8899aa;
+            --border-color: #c5d3e3;
+            --accent: #2563eb;
+            --shadow: 0 2px 12px rgba(37,99,235,0.1);
+        }
+        /* 蓝调 暗 */
+        body.theme-blue.dark-theme {
+            --bg-primary: #0f1729;
+            --bg-secondary: #172033;
+            --bg-tertiary: #1e2d47;
+            --text-primary: #e0e8f0;
+            --text-secondary: #8899bb;
+            --text-muted: #556680;
+            --border-color: #2a3a55;
+            --accent: #5b9aff;
+            --shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+
+        /* ===== 森绿 亮 ===== */
+        body.theme-green:not(.dark-theme) {
+            --bg-primary: #f2f7f2;
+            --bg-secondary: #e0ece0;
+            --bg-tertiary: #c8dcc8;
+            --text-primary: #1a2e1a;
+            --text-secondary: #4a6b4a;
+            --text-muted: #7a9a7a;
+            --border-color: #c0d5c0;
+            --accent: #16a34a;
+            --shadow: 0 2px 12px rgba(22,163,74,0.1);
+        }
+        /* 森绿 暗 */
+        body.theme-green.dark-theme {
+            --bg-primary: #0d1a0d;
+            --bg-secondary: #142214;
+            --bg-tertiary: #1e3320;
+            --text-primary: #d8ecd8;
+            --text-secondary: #88aa88;
+            --text-muted: #557755;
+            --border-color: #2a4a2d;
+            --accent: #4ade80;
+            --shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+
+        /* ===== 暖橙 亮 ===== */
+        body.theme-orange:not(.dark-theme) {
+            --bg-primary: #fdf6f0;
+            --bg-secondary: #f5e6d8;
+            --bg-tertiary: #edd5c0;
+            --text-primary: #3d2512;
+            --text-secondary: #7a5a3e;
+            --text-muted: #a08060;
+            --border-color: #e0ccb8;
+            --accent: #ea580c;
+            --shadow: 0 2px 12px rgba(234,88,12,0.1);
+        }
+        /* 暖橙 暗 */
+        body.theme-orange.dark-theme {
+            --bg-primary: #1a110a;
+            --bg-secondary: #241a10;
+            --bg-tertiary: #33251a;
+            --text-primary: #f0e0d0;
+            --text-secondary: #bb9070;
+            --text-muted: #806040;
+            --border-color: #4a3322;
+            --accent: #fb923c;
+            --shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+
+        /* ===== 樱粉 亮 ===== */
+        body.theme-pink:not(.dark-theme) {
+            --bg-primary: #fdf2f8;
+            --bg-secondary: #fce7f3;
+            --bg-tertiary: #f5d0e5;
+            --text-primary: #3d1230;
+            --text-secondary: #8b3a6a;
+            --text-muted: #b06090;
+            --border-color: #f0c0d8;
+            --accent: #db2777;
+            --shadow: 0 2px 12px rgba(219,39,119,0.1);
+        }
+        /* 樱粉 暗 */
+        body.theme-pink.dark-theme {
+            --bg-primary: #1a0a14;
+            --bg-secondary: #24101c;
+            --bg-tertiary: #331828;
+            --text-primary: #f0d8e8;
+            --text-secondary: #bb6090;
+            --text-muted: #884466;
+            --border-color: #4a2038;
+            --accent: #f472b6;
+            --shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+
+        /* ===== 靛紫 亮 ===== */
+        body.theme-purple:not(.dark-theme) {
+            --bg-primary: #f5f3ff;
+            --bg-secondary: #ede9fe;
+            --bg-tertiary: #ddd6fe;
+            --text-primary: #1e1340;
+            --text-secondary: #5b4a8a;
+            --text-muted: #8878aa;
+            --border-color: #d0c8f0;
+            --accent: #7c3aed;
+            --shadow: 0 2px 12px rgba(124,58,237,0.1);
+        }
+        /* 靛紫 暗 */
+        body.theme-purple.dark-theme {
+            --bg-primary: #110d1e;
+            --bg-secondary: #1a1430;
+            --bg-tertiary: #251d42;
+            --text-primary: #e8e0f8;
+            --text-secondary: #9988cc;
+            --text-muted: #665588;
+            --border-color: #3a2d55;
+            --accent: #a78bfa;
+            --shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+
+        /* 彩色主题下accent色元素覆盖 */
+        body[class*="theme-"]:not(.dark-theme) .ai-btn { background: var(--accent); color: #fff; }
+        body[class*="theme-"].dark-theme .ai-btn { background: var(--accent); color: #000; }
+        body[class*="theme-"]:not(.dark-theme) .chat-send-btn { background: var(--accent); color: #fff; }
+        body[class*="theme-"].dark-theme .chat-send-btn { background: var(--accent); color: #000; }
+        body[class*="theme-"]:not(.dark-theme) .chat-time-block.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+        body[class*="theme-"].dark-theme .chat-time-block.active { background: var(--accent); color: #000; border-color: var(--accent); }
+        body[class*="theme-"]:not(.dark-theme) .chat-task-btn.confirm { background: var(--accent); color: #fff; }
+        body[class*="theme-"].dark-theme .chat-task-btn.confirm { background: var(--accent); color: #000; }
+        body[class*="theme-"]:not(.dark-theme) .time-preset.active { background: var(--accent); color: #fff; }
+        body[class*="theme-"].dark-theme .time-preset.active { background: var(--accent); color: #000; }
+        body[class*="theme-"]:not(.dark-theme) .focus-btn.primary { background: var(--accent); color: #fff; }
+        body[class*="theme-"].dark-theme .focus-btn.primary { background: var(--accent); color: #000; }
+        body[class*="theme-"]:not(.dark-theme) .form-btn { background: var(--accent); color: #fff; }
+        body[class*="theme-"].dark-theme .form-btn { background: var(--accent); color: #000; }
+        body[class*="theme-"] .form-btn.delete-task-btn { background: #ef4444; color: #fff; }
+        body[class*="theme-"] .form-btn.complete-btn { background: #22c55e; color: #fff; }
+        body[class*="theme-"] .form-btn.abandon-btn { background: #6b7280; color: #fff; }
+        body[class*="theme-"] .focus-btn.stop { background: #ef4444; color: #fff; }
+        body[class*="theme-"]:not(.dark-theme) .upload-btn { background: var(--accent); color: #fff; }
+        body[class*="theme-"].dark-theme .upload-btn { background: var(--accent); color: #000; }
+        body[class*="theme-"]:not(.dark-theme) .time-block.active { background: var(--accent); color: #fff; }
+        body[class*="theme-"].dark-theme .time-block.active { background: var(--accent); color: #000; }
+        body[class*="theme-"]:not(.dark-theme) .calendar-day.today { background: var(--accent); color: #fff; }
+        body[class*="theme-"].dark-theme .calendar-day.today { background: var(--accent); color: #000; }
+        body[class*="theme-"]:not(.dark-theme) .chat-message.user .chat-bubble { background: var(--accent); color: #fff; }
+        body[class*="theme-"].dark-theme .chat-message.user .chat-bubble { background: var(--accent); color: #000; }
+        body[class*="theme-"] .theme-toggle-thumb { background: var(--accent); }
+        body[class*="theme-"].dark-theme .user-avatar { background: var(--accent); color: #000; }
 
         body.dark-theme .user-avatar {
             background: #ffffff;
@@ -2977,15 +3195,38 @@
         </div>
 
         <div class="settings-group">
-            <div class="section-label" style="padding: 16px 20px 12px;">主题设置</div>
-            <div class="theme-options">
-                <div class="theme-option active" onclick="setTheme('light')">
-                    <div class="theme-preview light"></div>
-                    <span>日间模式</span>
+            <div class="section-label" style="padding: 16px 20px 12px; display:flex; justify-content:space-between; align-items:center;">
+                <span>主题设置</span>
+                <div class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
+                    <span class="theme-toggle-label theme-toggle-day">日</span>
+                    <span class="theme-toggle-label theme-toggle-night">夜</span>
+                    <div class="theme-toggle-thumb"></div>
                 </div>
-                <div class="theme-option" onclick="setTheme('dark')">
-                    <div class="theme-preview dark"></div>
-                    <span>夜间模式</span>
+            </div>
+            <div class="theme-options">
+                <div class="theme-option active" id="themeCard" data-color="default" onclick="setColorTheme('default')">
+                    <div class="theme-preview light" id="themePreview"></div>
+                    <span id="themeLabel">日间模式</span>
+                </div>
+                <div class="theme-option" data-color="blue" onclick="setColorTheme('blue')">
+                    <div class="theme-preview" id="themePreviewBlue"></div>
+                    <span id="themeLabelBlue">蓝调</span>
+                </div>
+                <div class="theme-option" data-color="green" onclick="setColorTheme('green')">
+                    <div class="theme-preview" id="themePreviewGreen"></div>
+                    <span id="themeLabelGreen">森绿</span>
+                </div>
+                <div class="theme-option" data-color="orange" onclick="setColorTheme('orange')">
+                    <div class="theme-preview" id="themePreviewOrange"></div>
+                    <span id="themeLabelOrange">暖橙</span>
+                </div>
+                <div class="theme-option" data-color="pink" onclick="setColorTheme('pink')">
+                    <div class="theme-preview" id="themePreviewPink"></div>
+                    <span id="themeLabelPink">樱粉</span>
+                </div>
+                <div class="theme-option" data-color="purple" onclick="setColorTheme('purple')">
+                    <div class="theme-preview" id="themePreviewPurple"></div>
+                    <span id="themeLabelPurple">靛紫</span>
                 </div>
             </div>
             <div class="settings-item" onclick="showBgModal()">
@@ -3572,15 +3813,61 @@
         }
 
         function setTheme(theme) {
-            document.querySelectorAll('.theme-option').forEach(o => o.classList.remove('active'));
-            event.currentTarget.classList.add('active');
-            
             if (theme === 'dark') {
                 document.body.classList.add('dark-theme');
             } else {
                 document.body.classList.remove('dark-theme');
             }
             localStorage.setItem('theme', theme);
+            updateThemeCard(theme);
+        }
+
+        function toggleTheme() {
+            const isDark = document.body.classList.contains('dark-theme');
+            setTheme(isDark ? 'light' : 'dark');
+        }
+
+        function updateThemeCard(theme) {
+            const preview = document.getElementById('themePreview');
+            const label = document.getElementById('themeLabel');
+            if (theme === 'dark') {
+                preview.className = 'theme-preview dark';
+                label.textContent = '夜间模式';
+            } else {
+                preview.className = 'theme-preview light';
+                label.textContent = '日间模式';
+            }
+            updateAllThemePreviews(theme);
+        }
+
+        const colorThemeColors = {
+            blue:   { light: ['#f0f4f8','#dbe4ee'], dark: ['#172033','#2a4070'] },
+            green:  { light: ['#f2f7f2','#e0ece0'], dark: ['#142214','#1e4a2a'] },
+            orange: { light: ['#fdf6f0','#f5e6d8'], dark: ['#241a10','#5a3518'] },
+            pink:   { light: ['#fdf2f8','#fce7f3'], dark: ['#24101c','#5a1a40'] },
+            purple: { light: ['#f5f3ff','#ede9fe'], dark: ['#1a1430','#3a2860'] }
+        };
+
+        function updateAllThemePreviews(theme) {
+            var mode = theme || (document.body.classList.contains('dark-theme') ? 'dark' : 'light');
+            Object.keys(colorThemeColors).forEach(function(color) {
+                var el = document.getElementById('themePreview' + color.charAt(0).toUpperCase() + color.slice(1));
+                if (el) {
+                    var c = colorThemeColors[color][mode];
+                    el.style.background = 'linear-gradient(180deg, ' + c[0] + ' 50%, ' + c[1] + ' 50%)';
+                }
+            });
+        }
+
+        function setColorTheme(color) {
+            document.body.classList.remove('theme-blue', 'theme-green', 'theme-orange', 'theme-pink', 'theme-purple');
+            if (color !== 'default') {
+                document.body.classList.add('theme-' + color);
+            }
+            localStorage.setItem('colorTheme', color);
+            document.querySelectorAll('.theme-option').forEach(function(el) {
+                el.classList.toggle('active', el.dataset.color === color);
+            });
         }
 
         // AI Avatar functions
@@ -3739,8 +4026,17 @@
             const savedTheme = localStorage.getItem('theme');
             if (savedTheme === 'dark') {
                 document.body.classList.add('dark-theme');
-                document.querySelectorAll('.theme-option').forEach(o => o.classList.remove('active'));
-                document.querySelector('.theme-option:nth-child(2)').classList.add('active');
+                updateThemeCard('dark');
+            } else {
+                updateAllThemePreviews('light');
+            }
+
+            const savedColorTheme = localStorage.getItem('colorTheme');
+            if (savedColorTheme && savedColorTheme !== 'default') {
+                document.body.classList.add('theme-' + savedColorTheme);
+                document.querySelectorAll('.theme-option').forEach(function(el) {
+                    el.classList.toggle('active', el.dataset.color === savedColorTheme);
+                });
             }
 
             // 加载可安排时间
