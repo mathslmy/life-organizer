@@ -574,11 +574,12 @@
         .bgm-list {
             display: block;
             padding: 12px 20px 20px;
-            max-height: 240px;
+            max-height: 300px;
             overflow-y: auto;
             overflow-x: hidden;
             -webkit-overflow-scrolling: touch;
             overscroll-behavior: contain;
+            touch-action: pan-y;
         }
 
         .bgm-item {
@@ -7745,6 +7746,8 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                         <span style="font-size: 12px;">请在Supabase Storage创建 bgm bucket并上传音频文件</span>
                     </div>
                 `;
+                container.style.maxHeight = 'none';
+                container.style.overflowY = 'visible';
                 return;
             }
             
@@ -7756,6 +7759,15 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                     <span class="bgm-item-check">✓</span>
                 </div>
             `).join('');
+
+            // 强制设置滚动容器高度（超过4首时限制高度并启用滚动）
+            if (bgmList.length > 4) {
+                container.style.maxHeight = '300px';
+                container.style.overflowY = 'auto';
+            } else {
+                container.style.maxHeight = 'none';
+                container.style.overflowY = 'visible';
+            }
         }
 
         // 选择BGM
