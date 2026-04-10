@@ -2089,16 +2089,6 @@
             background: var(--bg-tertiary);
         }
 
-        /* 周视图任务块按标签着色 */
-        .week-task-item.week-label-学习 { background: #2edb51; }
-        .week-task-item.week-label-工作 { background: #fffd48; }
-        .week-task-item.week-label-家务 { background: #4da0d1; }
-        .week-task-item.week-label-充电 { background: #8086e1; }
-        .week-task-item.week-label-学习:hover { background: #28c448; }
-        .week-task-item.week-label-工作:hover { background: #e6e440; }
-        .week-task-item.week-label-家务:hover { background: #4590bc; }
-        .week-task-item.week-label-充电:hover { background: #7078cc; }
-
         .week-task-info {
             flex: 1;
         }
@@ -2173,7 +2163,7 @@
 
         /* 日间模式下日视图任务块按标签着色 */
         .hour-task-block.label-学习 { background: #22bd3e; }
-        .hour-task-block.label-工作 { background: #ffbc00; }
+        .hour-task-block.label-工作 { background: #f0ef59; }
         .hour-task-block.label-家务 { background: #1b43d2; }
         .hour-task-block.label-充电 { background: #513dc5; }
 
@@ -4566,7 +4556,7 @@
                 }
                 
                 html += `
-                    <div class="week-task-item week-label-${task.label}" onclick="editTask('${task.label}', ${task.id}, event)">
+                    <div class="week-task-item" onclick="editTask('${task.label}', ${task.id}, event)">
                         <div class="week-task-info">
                             <div class="week-task-name">${task.desc}</div>
                             <div class="week-task-meta">${task.label}${task.subject ? ' · ' + task.subject : ''}</div>
@@ -7476,23 +7466,12 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
 
         // 页面可见时刷新（加延时确保DOM准备好）
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') {
-                // 检查是否跨天，如果跨天需要更新 selectedDate 并刷新日视图
-                const todayStr = getLocalDateString();
-                if (selectedDate !== todayStr) {
-                    selectedDate = todayStr;
-                    renderDayView();
-                    renderWeekView();
-                }
-                
-                // 云端同步
-                if (localStorage.getItem('supabaseUrl')) {
-                    setTimeout(() => {
-                        pullTasksFromCloud();
-                        pullHistoryFromCloud();
-                        pullUserSettingsFromCloud();
-                    }, 100);
-                }
+            if (document.visibilityState === 'visible' && localStorage.getItem('supabaseUrl')) {
+                setTimeout(() => {
+                    pullTasksFromCloud();
+                    pullHistoryFromCloud();
+                    pullUserSettingsFromCloud();
+                }, 100);
             }
         });
         
