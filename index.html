@@ -5649,9 +5649,9 @@
                 const timeInfo = getAvailableTimeInfo();
                 const currentTime = getCurrentDateTime();
                 
-                // 构建任务列表描述（将UTC时间转换为本地时间格式）
+                // 构建任务列表描述（包含任务ID，将UTC时间转换为本地时间格式）
                 const taskDescriptions = incompleteTasks.map(t => {
-                    let desc = `任务: "${t.desc}", 标签: ${t.label}`;
+                    let desc = `任务ID: "${t.originalId}", 任务: "${t.desc}", 标签: ${t.label}`;
                     if (t.subject) desc += `, 课题: ${t.subject}`;
                     if (t.ddl) {
                         // 将ISO UTC时间转换为本地时间格式显示给AI
@@ -5687,7 +5687,7 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
 
 请为每个任务补全缺失的信息，返回JSON数组格式，每个任务包含:
 {
-  "originalId": 原任务ID(保持不变),
+  "originalId": "任务ID(必须与输入的任务ID完全一致)",
   "desc": "任务描述(保持原样)",
   "label": "标签(保持原样)",
   "subject": "课题(若标签为学习则必须根据任务描述推断填写，其他标签可为空)",
@@ -5697,12 +5697,20 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
   "reminder": "提醒时间(格式: YYYY-MM-DDTHH:MM)"
 }
 
-注意：
-1. 保持任务描述、标签不变
-2. 若标签为"学习"且课题为空，必须根据任务描述推断合适的课题名称
-3. 合理安排时间，避免与已有任务冲突
-4. 根据任务性质推断合理的时间安排
-5. 只返回JSON数组，不要有其他文字`;
+【重要】已有属性禁止变更规则：
+1. originalId 必须与输入中的"任务ID"完全一致，这是匹配任务的关键
+2. 任务描述(desc)、标签(label) 必须完全保持原样，禁止修改
+3. 如果任务已有 DDL，必须原样保留该 DDL，禁止更改
+4. 如果任务已有预估时间(estimate)，必须原样保留，禁止更改
+5. 如果任务已有开始时间(startTime)，必须原样保留，禁止更改
+6. 如果任务已有课题(subject)，必须原样保留，禁止更改
+7. 只能补全标注为"需补全"的字段，其他已有字段一律禁止修改
+
+其他注意事项：
+1. 若标签为"学习"且课题为空，必须根据任务描述推断合适的课题名称
+2. 合理安排时间，避免与已有任务冲突
+3. 根据任务性质推断合理的时间安排
+4. 只返回JSON数组，不要有其他文字`;
 
                 let content;
                 try {
@@ -5837,22 +5845,47 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
                 return;
             }
             
+            let updatedCount = 0;
+            
             // 更新原有任务
-            plannedTasks.forEach(planned => {
-                const original = originalTasksMap[planned.originalId];
-                if (!original) return;
+            plannedTasks.forEach((planned, index) => {
+                let original = originalTasksMap[planned.originalId];
+                
+                // 如果通过originalId找不到，尝试通过任务描述匹配
+                if (!original) {
+                    // 遍历所有标签查找匹配的任务
+                    const labels = ['学习', '工作', '家务', '充电'];
+                    for (const label of labels) {
+                        const matchedTask = tasks[label]?.find(t => t.desc === planned.desc);
+                        if (matchedTask) {
+                            original = { label: label, id: matchedTask.id };
+                            break;
+                        }
+                    }
+                }
+                
+                if (!original) {
+                    console.warn(`无法找到匹配的原任务: ${planned.desc}`);
+                    return;
+                }
                 
                 const taskIndex = tasks[original.label].findIndex(t => t.id === original.id);
-                if (taskIndex === -1) return;
+                if (taskIndex === -1) {
+                    console.warn(`在 ${original.label} 中找不到任务ID: ${original.id}`);
+                    return;
+                }
                 
-                // 更新任务信息（时间转换为ISO格式）
+                // 更新任务信息（时间转换为ISO格式，保留已有属性）
+                const existingTask = tasks[original.label][taskIndex];
                 tasks[original.label][taskIndex] = {
-                    ...tasks[original.label][taskIndex],
-                    estimate: planned.estimate,
-                    startTime: toISOTimestamp(planned.startTime),
-                    ddl: toISOTimestamp(planned.ddl),
-                    reminder: toISOTimestamp(planned.reminder)
+                    ...existingTask,
+                    subject: planned.subject || existingTask.subject,
+                    estimate: planned.estimate || existingTask.estimate,
+                    startTime: planned.startTime ? toISOTimestamp(planned.startTime) : existingTask.startTime,
+                    ddl: planned.ddl ? toISOTimestamp(planned.ddl) : existingTask.ddl,
+                    reminder: planned.reminder ? toISOTimestamp(planned.reminder) : existingTask.reminder
                 };
+                updatedCount++;
             });
             
             saveTasks();
@@ -5861,7 +5894,11 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
             renderWeekView();
             hideModal('planTasksModal');
             
-            alert(`成功更新 ${plannedTasks.length} 个任务的排程！`);
+            if (updatedCount > 0) {
+                alert(`成功更新 ${updatedCount} 个任务的排程！`);
+            } else {
+                alert('未能更新任何任务，请检查任务数据');
+            }
             plannedTasks = [];
             originalTasksMap = {};
         }
