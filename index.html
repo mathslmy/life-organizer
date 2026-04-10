@@ -572,12 +572,10 @@
 
         /* BGM选择列表样式 */
         .bgm-list {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+            display: block;
             padding: 12px 20px 20px;
-            max-height: 200px;
-            overflow-y: auto;
+            height: 200px;
+            overflow-y: scroll;
         }
 
         .bgm-item {
@@ -590,7 +588,11 @@
             border-radius: 12px;
             cursor: pointer;
             transition: all 0.2s;
-            flex-shrink: 0;
+            margin-bottom: 8px;
+        }
+
+        .bgm-item:last-child {
+            margin-bottom: 0;
         }
 
         .bgm-item:hover {
