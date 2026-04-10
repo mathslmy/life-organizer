@@ -28,20 +28,6 @@
             --border-color: #e0e0e0;
             --accent: #000000;
             --shadow: 0 2px 12px rgba(0,0,0,0.08);
-            --nav-height: 70px;
-            --page-height: calc(100vh - var(--nav-height));
-            --safe-area-bottom: env(safe-area-inset-bottom, 0px);
-        }
-
-        @supports (height: 100dvh) {
-            :root {
-                --page-height: calc(100dvh - var(--nav-height) - var(--safe-area-bottom));
-            }
-        }
-
-        html, body {
-            height: 100%;
-            overflow: hidden;
         }
 
         body {
@@ -49,19 +35,15 @@
             background: var(--bg-primary);
             color: var(--text-primary);
             min-height: 100vh;
-            min-height: 100dvh;
-            padding-bottom: 0;
+            padding-bottom: 80px;
         }
 
         /* Pages */
         .page {
             display: none;
             padding: 20px;
-            padding-bottom: calc(var(--nav-height) + var(--safe-area-bottom) + 20px);
-            height: var(--page-height);
-            overflow-y: auto;
-            overflow-x: hidden;
-            -webkit-overflow-scrolling: touch;
+            padding-top: 20px;
+            min-height: calc(100vh - 80px);
         }
 
         .page.active {
@@ -106,7 +88,7 @@
             grid-template-columns: 1.3fr 1fr;
             grid-template-rows: 1.8fr 1fr;
             gap: 1px;
-            height: calc(var(--page-height) - 100px);
+            height: calc(100vh - 180px);
             background: var(--border-color);
             border-radius: 16px;
             overflow: hidden;
@@ -1320,8 +1302,7 @@
             bottom: 0;
             left: 0;
             right: 0;
-            height: calc(var(--nav-height) + var(--safe-area-bottom));
-            padding-bottom: var(--safe-area-bottom);
+            height: 70px;
             background: var(--bg-primary);
             border-top: 1px solid var(--border-color);
             display: flex;
