@@ -1279,6 +1279,24 @@
             cursor: pointer;
         }
 
+        .focus-chat-export-btn {
+            padding: 6px 12px;
+            border-radius: 8px;
+            background: var(--bg-secondary);
+            border: none;
+            font-size: 13px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            margin-left: auto;
+            margin-right: 8px;
+            transition: all 0.2s;
+        }
+
+        .focus-chat-export-btn:hover {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
         .ai-modal-greeting {
             font-size: 18px;
             margin-bottom: 24px;
@@ -2543,6 +2561,7 @@
         <div class="modal-content chat-modal" onclick="event.stopPropagation()">
             <div class="modal-header">
                 <span class="modal-title" id="focusChatTitle">专注助手</span>
+                <button class="focus-chat-export-btn" onclick="exportFocusChatHistory()" title="导出聊天记录">导出</button>
                 <button class="modal-close" onclick="hideModal('focusChatModal')">×</button>
             </div>
             <div class="chat-container" id="focusChatContainer">
@@ -4368,29 +4387,34 @@
             const todayStr = getLocalDateString();
             const today = new Date();
             
-            // 计算当前周的周日（一周的开始）
+            // 计算当前周的周一（一周的开始）
             const dayOfWeek = today.getDay(); // 0=周日, 1=周一, ...
             const weekStart = new Date(today);
-            weekStart.setDate(today.getDate() - dayOfWeek);
+            // 如果是周日(0)，则回退6天；否则回退 dayOfWeek-1 天
+            const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+            weekStart.setDate(today.getDate() - daysToMonday);
             
-            // 计算周数
+            // 计算周数（ISO周数，周一为一周开始）
             const startOfYear = new Date(today.getFullYear(), 0, 1);
-            const weekNum = Math.ceil(((today - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
+            const dayOfYear = Math.floor((today - startOfYear) / 86400000);
+            const startDayOfWeek = startOfYear.getDay();
+            const adjustedStartDay = startDayOfWeek === 0 ? 7 : startDayOfWeek;
+            const weekNum = Math.ceil((dayOfYear + adjustedStartDay) / 7);
             
             // 更新标题
             document.getElementById('calendarMonthTitle').textContent = `${today.getFullYear()}年${today.getMonth() + 1}月`;
             document.getElementById('calendarWeekNum').textContent = `第${weekNum}周`;
             
-            // 生成日历网格
+            // 生成日历网格（周一到周日）
             const grid = document.getElementById('calendarGrid');
             let html = `
-                <div class="calendar-day" style="color: var(--text-muted);">日</div>
                 <div class="calendar-day" style="color: var(--text-muted);">一</div>
                 <div class="calendar-day" style="color: var(--text-muted);">二</div>
                 <div class="calendar-day" style="color: var(--text-muted);">三</div>
                 <div class="calendar-day" style="color: var(--text-muted);">四</div>
                 <div class="calendar-day" style="color: var(--text-muted);">五</div>
                 <div class="calendar-day" style="color: var(--text-muted);">六</div>
+                <div class="calendar-day" style="color: var(--text-muted);">日</div>
             `;
             
             // 生成两周的日期（上周+本周）
@@ -5043,6 +5067,40 @@
             // 同时从localStorage删除
             const key = 'focusChat_' + desc;
             localStorage.removeItem(key);
+        }
+
+        function exportFocusChatHistory() {
+            const history = loadFocusChatHistory();
+            if (!history || history.length === 0) {
+                alert('暂无聊天记录可导出');
+                return;
+            }
+            
+            const exportData = {
+                taskName: currentFocusTask ? currentFocusTask.desc : '未知任务',
+                taskLabel: currentFocusTask ? currentFocusTask.label : '',
+                exportTime: new Date().toISOString(),
+                messageCount: history.length,
+                messages: history.map((msg, index) => ({
+                    index: index + 1,
+                    role: msg.role,
+                    content: msg.content,
+                    timestamp: msg.timestamp || null
+                }))
+            };
+            
+            const jsonStr = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            const fileName = `聊天记录_${exportData.taskName}_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}.json`;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
 
         function renderFocusChatHistory() {
