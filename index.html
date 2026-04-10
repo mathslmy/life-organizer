@@ -2089,6 +2089,16 @@
             background: var(--bg-tertiary);
         }
 
+        /* 周视图任务块按标签着色 */
+        .week-task-item.week-label-学习 { background: #2edb51; }
+        .week-task-item.week-label-工作 { background: #fffd48; }
+        .week-task-item.week-label-家务 { background: #4da0d1; }
+        .week-task-item.week-label-充电 { background: #8086e1; }
+        .week-task-item.week-label-学习:hover { background: #28c448; }
+        .week-task-item.week-label-工作:hover { background: #e6e440; }
+        .week-task-item.week-label-家务:hover { background: #4590bc; }
+        .week-task-item.week-label-充电:hover { background: #7078cc; }
+
         .week-task-info {
             flex: 1;
         }
@@ -4556,7 +4566,7 @@
                 }
                 
                 html += `
-                    <div class="week-task-item" onclick="editTask('${task.label}', ${task.id}, event)">
+                    <div class="week-task-item week-label-${task.label}" onclick="editTask('${task.label}', ${task.id}, event)">
                         <div class="week-task-info">
                             <div class="week-task-name">${task.desc}</div>
                             <div class="week-task-meta">${task.label}${task.subject ? ' · ' + task.subject : ''}</div>
