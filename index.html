@@ -5302,7 +5302,8 @@
             const occupiedSlots = existingTasks
                 .filter(t => t.startTime && t.estimate)
                 .map(t => ({
-                    start: t.startTime,
+                    // 将UTC时间转换为本地时间格式
+                    start: toLocalDatetime(t.startTime),
                     duration: t.estimate,
                     desc: t.desc
                 }));
@@ -5654,13 +5655,11 @@
                     let desc = `任务ID: "${t.originalId}", 任务: "${t.desc}", 标签: ${t.label}`;
                     if (t.subject) desc += `, 课题: ${t.subject}`;
                     if (t.ddl) {
-                        // 将ISO UTC时间转换为本地时间格式显示给AI
                         const localDdl = toLocalDatetime(t.ddl);
                         desc += `, DDL: ${localDdl}`;
                     }
                     if (t.estimate) desc += `, 预估时间: ${t.estimate}分钟`;
                     if (t.startTime) {
-                        // 将ISO UTC时间转换为本地时间格式显示给AI
                         const localStartTime = toLocalDatetime(t.startTime);
                         desc += `, 开始时间: ${localStartTime}`;
                     }
@@ -5853,7 +5852,6 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
                 
                 // 如果通过originalId找不到，尝试通过任务描述匹配
                 if (!original) {
-                    // 遍历所有标签查找匹配的任务
                     const labels = ['学习', '工作', '家务', '充电'];
                     for (const label of labels) {
                         const matchedTask = tasks[label]?.find(t => t.desc === planned.desc);
@@ -5979,11 +5977,14 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
                 const timeInfo = getAvailableTimeInfo();
                 const currentTime = getCurrentDateTime();
                 
-                // 构建过期任务列表描述
+                // 构建过期任务列表描述（将UTC时间转换为本地时间格式）
                 const taskDescriptions = expiredList.map(t => {
-                    let desc = `任务: "${t.desc}", 标签: ${t.label}`;
+                    let desc = `任务ID: "${t.originalId}", 任务: "${t.desc}", 标签: ${t.label}`;
                     if (t.subject) desc += `, 课题: ${t.subject}`;
-                    if (t.originalDDL) desc += `, 原DDL: ${t.originalDDL} (已过期)`;
+                    if (t.originalDDL) {
+                        const localDDL = toLocalDatetime(t.originalDDL);
+                        desc += `, 原DDL: ${localDDL} (已过期)`;
+                    }
                     if (t.estimate) desc += `, 预估时间: ${t.estimate}分钟`;
                     return desc;
                 }).join('\n');
@@ -6001,7 +6002,7 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
 
 请为这些过期任务重新安排时间，返回JSON数组格式，每个任务包含:
 {
-  "originalId": 原任务ID(保持不变),
+  "originalId": "任务ID(必须与输入的任务ID完全一致)",
   "desc": "任务描述(保持原样)",
   "label": "标签(保持原样)",
   "subject": "课题(若标签为学习且课题为空则必须根据任务描述推断填写)",
@@ -6011,13 +6012,15 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
   "reminder": "新的提醒时间(格式: YYYY-MM-DDTHH:MM)"
 }
 
-注意：
-1. 保持任务描述、标签、预估时间不变
-2. 若标签为"学习"且课题为空，必须根据任务描述推断合适的课题名称
-3. 重新安排合理的开始时间和DDL，从当前时间往后安排
-4. 合理安排时间，避免与已有任务冲突
-5. 按任务紧急程度优先安排
-6. 只返回JSON数组，不要有其他文字`;
+【重要】属性规则：
+1. originalId 必须与输入中的"任务ID"完全一致，这是匹配任务的关键
+2. 任务描述(desc)、标签(label)、预估时间(estimate) 必须保持原样，禁止修改
+3. 如果任务已有课题(subject)，必须原样保留，禁止更改
+4. 若标签为"学习"且课题为空，必须根据任务描述推断合适的课题名称
+5. 重新安排合理的开始时间和DDL，从当前时间往后安排
+6. 合理安排时间，避免与已有任务冲突
+7. 按任务紧急程度优先安排
+8. 只返回JSON数组，不要有其他文字`;
 
                 let content;
                 try {
@@ -6152,22 +6155,46 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
                 return;
             }
             
+            let updatedCount = 0;
+            
             // 更新原有任务
-            expiredTasks.forEach(expired => {
-                const original = expiredTasksMap[expired.originalId];
-                if (!original) return;
+            expiredTasks.forEach((expired, index) => {
+                let original = expiredTasksMap[expired.originalId];
+                
+                // 如果通过originalId找不到，尝试通过任务描述匹配
+                if (!original) {
+                    const labels = ['学习', '工作', '家务', '充电'];
+                    for (const label of labels) {
+                        const matchedTask = tasks[label]?.find(t => t.desc === expired.desc);
+                        if (matchedTask) {
+                            original = { label: label, id: matchedTask.id };
+                            break;
+                        }
+                    }
+                }
+                
+                if (!original) {
+                    console.warn(`无法找到匹配的原任务: ${expired.desc}`);
+                    return;
+                }
                 
                 const taskIndex = tasks[original.label].findIndex(t => t.id === original.id);
-                if (taskIndex === -1) return;
+                if (taskIndex === -1) {
+                    console.warn(`在 ${original.label} 中找不到任务ID: ${original.id}`);
+                    return;
+                }
                 
-                // 更新任务的时间信息（转换为ISO格式）
+                // 更新任务的时间信息（转换为ISO格式，保留已有属性）
+                const existingTask = tasks[original.label][taskIndex];
                 tasks[original.label][taskIndex] = {
-                    ...tasks[original.label][taskIndex],
-                    estimate: expired.estimate,
-                    startTime: toISOTimestamp(expired.startTime),
-                    ddl: toISOTimestamp(expired.ddl),
-                    reminder: toISOTimestamp(expired.reminder)
+                    ...existingTask,
+                    subject: expired.subject || existingTask.subject,
+                    estimate: expired.estimate || existingTask.estimate,
+                    startTime: expired.startTime ? toISOTimestamp(expired.startTime) : existingTask.startTime,
+                    ddl: expired.ddl ? toISOTimestamp(expired.ddl) : existingTask.ddl,
+                    reminder: expired.reminder ? toISOTimestamp(expired.reminder) : existingTask.reminder
                 };
+                updatedCount++;
             });
             
             saveTasks();
@@ -6176,7 +6203,11 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
             renderWeekView();
             hideModal('expiredTasksModal');
             
-            alert(`成功更新 ${expiredTasks.length} 个过期任务！`);
+            if (updatedCount > 0) {
+                alert(`成功更新 ${updatedCount} 个过期任务！`);
+            } else {
+                alert('未能更新任何任务，请检查任务数据');
+            }
             expiredTasks = [];
             expiredTasksMap = {};
         }
@@ -6570,8 +6601,9 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
                         label: label,
                         subject: t.subject || '',
                         estimate: t.estimate,
-                        startTime: t.startTime,
-                        ddl: t.ddl
+                        // 将UTC时间转换为本地时间格式
+                        startTime: t.startTime ? toLocalDatetime(t.startTime) : '',
+                        ddl: t.ddl ? toLocalDatetime(t.ddl) : ''
                     });
                 });
             });
