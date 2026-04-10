@@ -1481,21 +1481,21 @@
         }
 
         body.has-bg .page {
-            background: rgba(255,255,255,0.9);
+            background: rgba(255,255,255,var(--bg-overlay-opacity, 0.9));
             backdrop-filter: blur(10px);
         }
 
         body.has-bg.dark-theme .page {
-            background: rgba(18,18,18,0.9);
+            background: rgba(18,18,18,var(--bg-overlay-opacity, 0.9));
         }
 
         body.has-bg .bottom-nav {
-            background: rgba(255,255,255,0.95);
+            background: rgba(255,255,255,calc(var(--bg-overlay-opacity, 0.9) + 0.05));
             backdrop-filter: blur(10px);
         }
 
         body.has-bg.dark-theme .bottom-nav {
-            background: rgba(18,18,18,0.95);
+            background: rgba(18,18,18,calc(var(--bg-overlay-opacity, 0.9) + 0.05));
         }
 
         /* Dark theme */
@@ -3308,6 +3308,13 @@
                     <button onclick="setBgUrl()" class="url-confirm-btn">确定</button>
                 </div>
                 <button onclick="clearBg()" class="clear-btn">清空背景图</button>
+                <div id="bgOpacityGroup" style="display:none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="font-size: 14px; color: var(--text-secondary);">背景透明度</span>
+                        <span id="bgOpacityValue" style="font-size: 14px; color: var(--text-secondary);">90%</span>
+                    </div>
+                    <input type="range" id="bgOpacitySlider" min="0" max="100" value="90" oninput="onBgOpacityChange(this.value)" style="width: 100%; accent-color: var(--accent);">
+                </div>
             </div>
         </div>
     </div>
@@ -3906,6 +3913,13 @@
         // Background functions
         function showBgModal() {
             document.getElementById('bgModal').classList.add('show');
+            const hasBg = document.body.classList.contains('has-bg');
+            showBgOpacitySlider(hasBg);
+            if (hasBg) {
+                const saved = localStorage.getItem('bgOpacity') || '90';
+                document.getElementById('bgOpacitySlider').value = saved;
+                document.getElementById('bgOpacityValue').textContent = saved + '%';
+            }
         }
 
         function uploadBg(event) {
@@ -3932,13 +3946,29 @@
             document.body.style.backgroundImage = 'url(' + src + ')';
             document.body.classList.add('has-bg');
             localStorage.setItem('bgUrl', src);
+            showBgOpacitySlider(true);
         }
 
         function clearBg() {
             document.body.style.backgroundImage = '';
             document.body.classList.remove('has-bg');
             localStorage.removeItem('bgUrl');
+            localStorage.removeItem('bgOpacity');
+            document.body.style.removeProperty('--bg-overlay-opacity');
+            showBgOpacitySlider(false);
             hideModal('bgModal');
+        }
+
+        function showBgOpacitySlider(show) {
+            const group = document.getElementById('bgOpacityGroup');
+            if (group) group.style.display = show ? 'block' : 'none';
+        }
+
+        function onBgOpacityChange(val) {
+            const opacity = val / 100;
+            document.body.style.setProperty('--bg-overlay-opacity', opacity);
+            document.getElementById('bgOpacityValue').textContent = val + '%';
+            localStorage.setItem('bgOpacity', val);
         }
 
         // AI Remind Times
@@ -4021,6 +4051,10 @@
             const savedBg = localStorage.getItem('bgUrl');
             if (savedBg) {
                 setBgImage(savedBg);
+                const savedOpacity = localStorage.getItem('bgOpacity');
+                if (savedOpacity) {
+                    document.body.style.setProperty('--bg-overlay-opacity', savedOpacity / 100);
+                }
             }
             
             const savedTheme = localStorage.getItem('theme');
