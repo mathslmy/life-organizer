@@ -572,12 +572,13 @@
 
         /* BGM选择列表样式 */
         .bgm-list {
-            display: block !important;
-            padding: 12px 20px 20px !important;
-            height: 200px !important;
-            max-height: 200px !important;
-            overflow-y: scroll !important;
-            overflow-x: hidden !important;
+            display: block;
+            padding: 12px 20px 20px;
+            max-height: 240px;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
         }
 
         .bgm-item {
@@ -792,7 +793,7 @@
         }
 
         .settings-group.bgm-settings-group {
-            overflow: unset;
+            overflow: hidden;
         }
 
         .settings-item {
