@@ -5337,39 +5337,37 @@
             let requestBody;
             
             if (isClaude) {
-                // Claude渠道：将system合并到第一条user消息，确保最后一条是user
+                // Claude渠道：将system合并到第一条user消息
                 const processedMessages = [...messages];
                 
-                // 如果第一条是user消息，将system合并进去
                 if (processedMessages.length > 0 && processedMessages[0].role === 'user') {
                     processedMessages[0] = {
                         role: 'user',
                         content: `${systemPrompt}\n\n${processedMessages[0].content}`
                     };
                 } else {
-                    // 否则在开头插入一条包含system的user消息
                     processedMessages.unshift({
                         role: 'user',
                         content: systemPrompt
                     });
                 }
                 
-                // 确保最后一条是user消息
-                if (processedMessages.length > 0 && processedMessages[processedMessages.length - 1].role !== 'user') {
-                    processedMessages.push({
-                        role: 'user',
-                        content: '请继续'
-                    });
+                // 确保最后一条是user
+                if (processedMessages[processedMessages.length - 1].role !== 'user') {
+                    processedMessages.push({ role: 'user', content: '请继续' });
                 }
                 
                 requestBody = {
-                    model: model,
                     messages: processedMessages,
+                    model: model,
                     temperature: 1,
-                    max_tokens: 8192
+                    max_tokens: 8192,
+                    stream: true,
+                    presence_penalty: 0,
+                    frequency_penalty: 0,
+                    top_p: 0.99
                 };
             } else {
-                // 其他渠道：正常使用system和messages
                 requestBody = {
                     model: model,
                     messages: [
@@ -5482,14 +5480,18 @@
             let requestBody;
             
             if (isClaude) {
-                // Claude渠道：将system合并到user消息，确保最后一条是user
+                // Claude渠道
                 requestBody = {
-                    model: apiConfig.model,
                     messages: [
                         { role: 'user', content: `${systemPrompt}\n\n${userInput}` }
                     ],
+                    model: apiConfig.model,
                     temperature: 1,
-                    max_tokens: 8192
+                    max_tokens: 8192,
+                    stream: true,
+                    presence_penalty: 0,
+                    frequency_penalty: 0,
+                    top_p: 0.99
                 };
             } else {
                 // 其他渠道：正常使用system和user
