@@ -433,7 +433,7 @@
         /* Page 3: 专注 */
         #page3 {
             padding-top: 10px;
-            padding-bottom: 10px;
+            padding-bottom: 2px;
         }
 
         .focus-current {
@@ -890,6 +890,11 @@
             gap: 8px;
             flex-wrap: wrap;
             justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .time-presets.hidden {
+            display: none;
         }
 
         .time-preset {
@@ -920,6 +925,11 @@
             font-size: 14px;
             resize: none;
             font-family: inherit;
+            transition: height 0.3s;
+        }
+
+        .thoughts-textarea.expanded {
+            height: 200px;
         }
 
         .thoughts-textarea:focus {
@@ -5221,12 +5231,18 @@
             const startBtn = document.getElementById('focusStartBtn');
             const btnRow = document.getElementById('focusBtnRow');
             const pauseBtn = document.getElementById('focusPauseBtn');
+            const timePresets = document.querySelector('.time-presets');
+            const thoughtsTextarea = document.getElementById('focusThoughts');
             
             if (!isRunning) {
                 isRunning = true;
                 startBtn.style.display = 'none';
                 btnRow.style.display = 'flex';
                 pauseBtn.textContent = '暂停';
+                
+                // 隐藏时间块，扩大感想区域
+                if (timePresets) timePresets.classList.add('hidden');
+                if (thoughtsTextarea) thoughtsTextarea.classList.add('expanded');
                 
                 timerInterval = setInterval(() => {
                     if (isCountUp) {
@@ -5241,6 +5257,9 @@
                                 isRunning = false;
                                 startBtn.style.display = 'block';
                                 btnRow.style.display = 'none';
+                                // 恢复时间块和感想区域
+                                if (timePresets) timePresets.classList.remove('hidden');
+                                if (thoughtsTextarea) thoughtsTextarea.classList.remove('expanded');
                                 alert('专注完成！');
                                 return;
                             }
@@ -5279,8 +5298,15 @@
             
             const startBtn = document.getElementById('focusStartBtn');
             const btnRow = document.getElementById('focusBtnRow');
+            const timePresets = document.querySelector('.time-presets');
+            const thoughtsTextarea = document.getElementById('focusThoughts');
+            
             startBtn.style.display = 'block';
             btnRow.style.display = 'none';
+            
+            // 恢复时间块和感想区域
+            if (timePresets) timePresets.classList.remove('hidden');
+            if (thoughtsTextarea) thoughtsTextarea.classList.remove('expanded');
             
             // 重置计时器
             if (isCountUp) {
