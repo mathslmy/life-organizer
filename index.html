@@ -7452,12 +7452,23 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
 
         // 页面可见时刷新（加延时确保DOM准备好）
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible' && localStorage.getItem('supabaseUrl')) {
-                setTimeout(() => {
-                    pullTasksFromCloud();
-                    pullHistoryFromCloud();
-                    pullUserSettingsFromCloud();
-                }, 100);
+            if (document.visibilityState === 'visible') {
+                // 检查日期是否变化，更新日视图
+                const today = getLocalDateString();
+                if (selectedDate !== today) {
+                    selectedDate = today;
+                    renderDayView();
+                    renderWeekView();
+                }
+                
+                // 云同步
+                if (localStorage.getItem('supabaseUrl')) {
+                    setTimeout(() => {
+                        pullTasksFromCloud();
+                        pullHistoryFromCloud();
+                        pullUserSettingsFromCloud();
+                    }, 100);
+                }
             }
         });
         
