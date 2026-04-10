@@ -557,6 +557,10 @@
             transition: all 0.2s;
             user-select: none;
             -webkit-user-select: none;
+            /* iOS 长按支持 */
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
 
         .bgm-btn.playing {
@@ -8041,8 +8045,12 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             bgmAudio = new Audio(bgm.url);
             bgmAudio.loop = false;
             bgmAudio.volume = 0;
+            // iOS 需要 playsinline 属性
+            bgmAudio.setAttribute('playsinline', '');
+            bgmAudio.setAttribute('webkit-playsinline', '');
             
-            bgmAudio.oncanplaythrough = () => {
+            // iOS 优化：直接尝试播放，不等待 canplaythrough
+            const attemptPlay = () => {
                 bgmAudio.play().then(() => {
                     isBgmPlaying = true;
                     bgmIsPaused = false;
@@ -8052,8 +8060,32 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                     startLoopCheck(bgmAudio, bgm.url);
                 }).catch(e => {
                     console.error('播放失败:', e);
-                    showSyncStatus('播放失败，请重试');
+                    // iOS 可能需要用户再次点击
+                    if (e.name === 'NotAllowedError') {
+                        showSyncStatus('请再次点击播放');
+                    } else {
+                        showSyncStatus('播放失败，请重试');
+                    }
+                    isBgmPlaying = false;
+                    updateBgmButton();
                 });
+            };
+
+            // 监听多个事件以确保兼容性
+            let playAttempted = false;
+            
+            bgmAudio.oncanplay = () => {
+                if (!playAttempted) {
+                    playAttempted = true;
+                    attemptPlay();
+                }
+            };
+            
+            bgmAudio.oncanplaythrough = () => {
+                if (!playAttempted) {
+                    playAttempted = true;
+                    attemptPlay();
+                }
             };
 
             bgmAudio.onerror = () => {
@@ -8063,6 +8095,14 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             };
 
             bgmAudio.load();
+            
+            // iOS 有时需要直接尝试播放
+            setTimeout(() => {
+                if (!playAttempted && bgmAudio) {
+                    playAttempted = true;
+                    attemptPlay();
+                }
+            }, 100);
         }
 
         // 暂停BGM（带淡出，保留进度）
@@ -8100,7 +8140,16 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                     showSyncStatus(`继续播放: ${bgmList[currentBgmIndex]?.name || 'BGM'}`);
                 }).catch(e => {
                     console.error('恢复播放失败:', e);
-                    showSyncStatus('恢复失败，请重试');
+                    // iOS 可能需要用户再次点击
+                    if (e.name === 'NotAllowedError') {
+                        showSyncStatus('请再次点击播放');
+                        // 重置状态让用户可以重新点击
+                        isBgmPlaying = false;
+                        bgmIsPaused = true;
+                        updateBgmButton();
+                    } else {
+                        showSyncStatus('恢复失败，请重试');
+                    }
                 });
             } else {
                 // 如果没有暂停的音频，就重新播放
@@ -8156,16 +8205,68 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             // 点击 - 播放/停止
             // 长按 - 下一首
             
+            // 桌面端
             btn.addEventListener('mousedown', handleBgmPressStart);
             btn.addEventListener('mouseup', handleBgmPressEnd);
             btn.addEventListener('mouseleave', handleBgmPressEnd);
             
+            // 移动端 - 完全重写以支持 iOS Chrome
+            let touchStartTime = 0;
+            let touchMoved = false;
+            
             btn.addEventListener('touchstart', (e) => {
+                // 阻止默认行为和上下文菜单
                 e.preventDefault();
-                handleBgmPressStart(e);
+                e.stopPropagation();
+                
+                touchStartTime = Date.now();
+                touchMoved = false;
+                bgmLongPressed = false;
+                
+                bgmLongPressTimer = setTimeout(() => {
+                    bgmLongPressed = true;
+                    playNextBgm();
+                    
+                    // 震动反馈（如果支持）
+                    if (navigator.vibrate) {
+                        navigator.vibrate(50);
+                    }
+                }, 500);
             }, { passive: false });
-            btn.addEventListener('touchend', handleBgmPressEnd);
-            btn.addEventListener('touchcancel', handleBgmPressEnd);
+            
+            btn.addEventListener('touchmove', (e) => {
+                touchMoved = true;
+                // 如果移动了，取消长按
+                clearTimeout(bgmLongPressTimer);
+            }, { passive: true });
+            
+            btn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                clearTimeout(bgmLongPressTimer);
+                
+                const touchDuration = Date.now() - touchStartTime;
+                
+                // 只有短按且未移动且未触发长按时才切换播放
+                if (!bgmLongPressed && !touchMoved && touchDuration < 500) {
+                    // 延迟一点执行，确保 iOS 音频上下文已准备好
+                    setTimeout(() => {
+                        toggleBgm();
+                    }, 10);
+                }
+            }, { passive: false });
+            
+            btn.addEventListener('touchcancel', (e) => {
+                clearTimeout(bgmLongPressTimer);
+                bgmLongPressed = false;
+            });
+            
+            // 阻止上下文菜单（iOS 长按）
+            btn.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                return false;
+            });
         }
 
         function handleBgmPressStart(e) {
