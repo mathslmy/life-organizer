@@ -34,29 +34,20 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
-            height: 100vh;
-            height: 100dvh; /* 动态视口高度，适配移动端地址栏变化 */
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
+            min-height: 100vh;
+            padding-bottom: 80px;
         }
 
         /* Pages */
         .page {
             display: none;
             padding: 20px;
-            padding-top: max(20px, env(safe-area-inset-top)); /* 适配刘海屏 */
-            padding-bottom: calc(70px + env(safe-area-inset-bottom) + 10px); /* 底部导航 + 安全区域 + 间距 */
-            height: 100vh;
-            height: 100dvh; /* 动态视口高度 */
-            overflow-y: auto;
-            overflow-x: hidden;
-            box-sizing: border-box;
+            padding-top: 20px;
+            min-height: calc(100vh - 80px);
         }
 
         .page.active {
-            display: flex;
-            flex-direction: column;
+            display: block;
         }
 
         /* Page1 AI Button */
@@ -97,8 +88,7 @@
             grid-template-columns: 1.3fr 1fr;
             grid-template-rows: 1.8fr 1fr;
             gap: 1px;
-            flex: 1;
-            min-height: 0; /* 重要：允许grid缩小 */
+            height: calc(100vh - 180px);
             background: var(--border-color);
             border-radius: 16px;
             overflow: hidden;
@@ -581,21 +571,60 @@
         }
 
         /* BGM选择列表样式 */
+        .bgm-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px 12px;
+            cursor: pointer;
+        }
+
+        .bgm-header-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .bgm-toggle {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: var(--text-muted);
+            transition: transform 0.3s;
+        }
+
+        .bgm-toggle.expanded {
+            transform: rotate(90deg);
+        }
+
+        .bgm-list-wrapper {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .bgm-list-wrapper.expanded {
+            max-height: 500px;
+        }
+
         .bgm-list {
             display: flex;
             flex-direction: column;
-            gap: 8px;
-            padding: 12px 20px 20px;
+            gap: 4px;
+            padding: 0 20px 12px;
         }
 
         .bgm-item {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 14px 16px;
+            padding: 10px 12px;
             background: var(--bg-primary);
-            border: 2px solid var(--border-color);
-            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
             cursor: pointer;
             transition: all 0.2s;
         }
@@ -610,21 +639,22 @@
         }
 
         .bgm-item-name {
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 500;
         }
 
         .bgm-item-check {
-            width: 20px;
-            height: 20px;
+            width: 18px;
+            height: 18px;
             border-radius: 50%;
             border: 2px solid var(--border-color);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 12px;
+            font-size: 10px;
             color: transparent;
             transition: all 0.2s;
+            flex-shrink: 0;
         }
 
         .bgm-item.selected .bgm-item-check {
@@ -1301,13 +1331,10 @@
             left: 0;
             right: 0;
             height: 70px;
-            height: calc(70px + env(safe-area-inset-bottom)); /* 适配iPhone X等底部安全区域 */
-            padding-bottom: env(safe-area-inset-bottom);
             background: var(--bg-primary);
             border-top: 1px solid var(--border-color);
             display: flex;
             z-index: 100;
-            flex-shrink: 0;
         }
 
         .nav-item {
@@ -2565,9 +2592,17 @@
         </div>
 
         <div class="settings-group">
-            <div class="section-label" style="padding: 16px 20px 12px;">🎵 BGM 设置</div>
-            <div class="bgm-list" id="bgmList">
-                <!-- 动态生成BGM列表 -->
+            <div class="bgm-header" onclick="toggleBgmList()">
+                <div class="bgm-header-left">
+                    <span>🎵 BGM 设置</span>
+                    <span id="bgmCount" style="font-size: 12px; color: var(--text-muted);"></span>
+                </div>
+                <span class="bgm-toggle" id="bgmToggle">›</span>
+            </div>
+            <div class="bgm-list-wrapper" id="bgmListWrapper">
+                <div class="bgm-list" id="bgmList">
+                    <!-- 动态生成BGM列表 -->
+                </div>
             </div>
             <div class="settings-item" onclick="refreshBgmList()">
                 <span class="settings-item-label" style="color: var(--accent);">🔄 刷新BGM列表</span>
@@ -7734,16 +7769,51 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             currentBgmIndex = index;
         }
 
+        // 切换BGM列表展开/折叠
+        function toggleBgmList() {
+            const wrapper = document.getElementById('bgmListWrapper');
+            const toggle = document.getElementById('bgmToggle');
+            const isExpanded = wrapper.classList.contains('expanded');
+            
+            if (isExpanded) {
+                wrapper.classList.remove('expanded');
+                toggle.classList.remove('expanded');
+                localStorage.setItem('bgmListExpanded', 'false');
+            } else {
+                wrapper.classList.add('expanded');
+                toggle.classList.add('expanded');
+                localStorage.setItem('bgmListExpanded', 'true');
+            }
+        }
+
+        // 初始化BGM列表展开状态
+        function initBgmListState() {
+            const isExpanded = localStorage.getItem('bgmListExpanded') !== 'false';
+            const wrapper = document.getElementById('bgmListWrapper');
+            const toggle = document.getElementById('bgmToggle');
+            
+            if (wrapper && toggle && isExpanded) {
+                wrapper.classList.add('expanded');
+                toggle.classList.add('expanded');
+            }
+        }
+
         // 渲染BGM列表到设置页面
         function renderBgmList() {
             const container = document.getElementById('bgmList');
+            const countEl = document.getElementById('bgmCount');
             if (!container) return;
+            
+            // 更新数量显示
+            if (countEl) {
+                countEl.textContent = bgmList.length > 0 ? `(${bgmList.length})` : '';
+            }
             
             if (bgmList.length === 0) {
                 container.innerHTML = `
-                    <div style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 14px;">
+                    <div style="padding: 12px; text-align: center; color: var(--text-muted); font-size: 13px;">
                         暂无BGM<br>
-                        <span style="font-size: 12px;">请在Supabase Storage创建 bgm bucket并上传音频文件</span>
+                        <span style="font-size: 11px;">请在Supabase Storage创建 bgm bucket并上传音频文件</span>
                     </div>
                 `;
                 return;
@@ -7757,6 +7827,9 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                     <span class="bgm-item-check">✓</span>
                 </div>
             `).join('');
+            
+            // 初始化展开状态
+            initBgmListState();
         }
 
         // 选择BGM
