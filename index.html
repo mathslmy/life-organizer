@@ -5329,14 +5329,24 @@
         async function callAIAPIWithMessages(apiSettings, systemPrompt, messages) {
             const { provider, url, key, model } = apiSettings;
             
+            // 检测是否是Claude渠道
+            const isClaude = provider === 'claude' || 
+                             url.includes('anthropic.com') || 
+                             (model && model.includes('claude'));
+            
             const requestBody = {
                 model: model,
                 messages: [
                     { role: 'system', content: systemPrompt },
                     ...messages
                 ],
-                max_tokens: 1000
+                max_tokens: isClaude ? 4096 : 1000
             };
+            
+            // Claude渠道：temperature设为1（兼容thinking模式）
+            if (isClaude) {
+                requestBody.temperature = 1;
+            }
             
             const response = await fetch(url + '/chat/completions', {
                 method: 'POST',
@@ -5431,20 +5441,35 @@
                 apiUrl += '/chat/completions';
             }
             
+            // 检测是否是Claude渠道
+            const isClaude = apiConfig.provider === 'claude' || 
+                             apiUrl.includes('anthropic.com') || 
+                             (apiConfig.model && apiConfig.model.includes('claude'));
+            
+            // 构建请求体
+            const requestBody = {
+                model: apiConfig.model,
+                messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: userInput }
+                ]
+            };
+            
+            // Claude渠道：temperature设为1（兼容thinking模式），添加max_tokens
+            if (isClaude) {
+                requestBody.temperature = 1;
+                requestBody.max_tokens = 4096;
+            } else {
+                requestBody.temperature = 0.7;
+            }
+            
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${apiConfig.key}`
                 },
-                body: JSON.stringify({
-                    model: apiConfig.model,
-                    messages: [
-                        { role: 'system', content: systemPrompt },
-                        { role: 'user', content: userInput }
-                    ],
-                    temperature: 0.7
-                })
+                body: JSON.stringify(requestBody)
             });
             
             if (!response.ok) {
