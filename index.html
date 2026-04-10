@@ -5334,18 +5334,50 @@
                              url.includes('anthropic.com') || 
                              (model && model.includes('claude'));
             
-            const requestBody = {
-                model: model,
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    ...messages
-                ],
-                max_tokens: isClaude ? 4096 : 1000
-            };
+            let requestBody;
             
-            // Claude渠道：temperature设为1（兼容thinking模式）
             if (isClaude) {
-                requestBody.temperature = 1;
+                // Claude渠道：将system合并到第一条user消息，确保最后一条是user
+                const processedMessages = [...messages];
+                
+                // 如果第一条是user消息，将system合并进去
+                if (processedMessages.length > 0 && processedMessages[0].role === 'user') {
+                    processedMessages[0] = {
+                        role: 'user',
+                        content: `${systemPrompt}\n\n${processedMessages[0].content}`
+                    };
+                } else {
+                    // 否则在开头插入一条包含system的user消息
+                    processedMessages.unshift({
+                        role: 'user',
+                        content: systemPrompt
+                    });
+                }
+                
+                // 确保最后一条是user消息
+                if (processedMessages.length > 0 && processedMessages[processedMessages.length - 1].role !== 'user') {
+                    processedMessages.push({
+                        role: 'user',
+                        content: '请继续'
+                    });
+                }
+                
+                requestBody = {
+                    model: model,
+                    messages: processedMessages,
+                    temperature: 1,
+                    max_tokens: 8192
+                };
+            } else {
+                // 其他渠道：正常使用system和messages
+                requestBody = {
+                    model: model,
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        ...messages
+                    ],
+                    max_tokens: 1000
+                };
             }
             
             const response = await fetch(url + '/chat/completions', {
@@ -5447,20 +5479,28 @@
                              (apiConfig.model && apiConfig.model.includes('claude'));
             
             // 构建请求体
-            const requestBody = {
-                model: apiConfig.model,
-                messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: userInput }
-                ]
-            };
+            let requestBody;
             
-            // Claude渠道：temperature设为1（兼容thinking模式），添加max_tokens
             if (isClaude) {
-                requestBody.temperature = 1;
-                requestBody.max_tokens = 4096;
+                // Claude渠道：将system合并到user消息，确保最后一条是user
+                requestBody = {
+                    model: apiConfig.model,
+                    messages: [
+                        { role: 'user', content: `${systemPrompt}\n\n${userInput}` }
+                    ],
+                    temperature: 1,
+                    max_tokens: 8192
+                };
             } else {
-                requestBody.temperature = 0.7;
+                // 其他渠道：正常使用system和user
+                requestBody = {
+                    model: apiConfig.model,
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userInput }
+                    ],
+                    temperature: 0.7
+                };
             }
             
             const response = await fetch(apiUrl, {
