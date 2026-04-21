@@ -2357,6 +2357,124 @@
             color: #000;
         }
 
+        /* Chat Attachment */
+        .chat-attach-btn {
+            padding: 12px 14px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            font-size: 16px;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        .chat-attach-btn:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .chat-pending-attachments {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 6px 4px 0 4px;
+        }
+
+        .chat-pending-attachments:empty {
+            display: none;
+        }
+
+        .chat-pending-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            font-size: 12px;
+            color: var(--text-primary);
+            max-width: 220px;
+        }
+
+        .chat-pending-chip .chip-name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .chat-pending-chip .chip-remove {
+            cursor: pointer;
+            color: var(--text-muted);
+            font-weight: bold;
+            padding: 0 2px;
+        }
+
+        .chat-pending-chip .chip-remove:hover {
+            color: #ef4444;
+        }
+
+        .chat-attachment-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 6px;
+        }
+
+        .chat-attachment-image {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 12px;
+            cursor: pointer;
+            display: block;
+        }
+
+        .chat-attachment-file {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.06);
+            border-radius: 12px;
+            font-size: 13px;
+            cursor: pointer;
+            max-width: 240px;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        body.dark-theme .chat-attachment-file {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .chat-message.user .chat-attachment-file {
+            background: rgba(255,255,255,0.2);
+            color: inherit;
+        }
+
+        .chat-attachment-file .file-icon {
+            font-size: 18px;
+        }
+
+        .chat-attachment-file .file-info {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .chat-attachment-file .file-name {
+            font-size: 13px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 180px;
+        }
+
+        .chat-attachment-file .file-size {
+            font-size: 11px;
+            opacity: 0.7;
+        }
+
         .chat-typing {
             display: flex;
             gap: 4px;
@@ -3372,7 +3490,10 @@
             <div class="chat-container" id="chatContainer">
                 <!-- 动态生成聊天消息 -->
             </div>
+            <div class="chat-pending-attachments" id="chatPendingAttachments"></div>
             <div class="chat-input-area">
+                <input type="file" id="chatFileInput" accept="image/*,.pdf,.xlsx,.xls,.csv,.doc,.docx,.txt,.json,.md" multiple style="display:none;" onchange="handleChatFileSelect(event, 'ai')">
+                <button class="chat-attach-btn" onclick="document.getElementById('chatFileInput').click()" title="上传文件">📎</button>
                 <input type="text" id="chatInput" class="chat-input" placeholder="说点什么..." onkeypress="if(event.key==='Enter')sendChatMessage()">
                 <button class="chat-send-btn" onclick="sendChatMessage()">发送</button>
             </div>
@@ -3390,7 +3511,10 @@
             <div class="chat-container" id="focusChatContainer">
                 <!-- 动态生成聊天消息 -->
             </div>
+            <div class="chat-pending-attachments" id="focusChatPendingAttachments"></div>
             <div class="chat-input-area">
+                <input type="file" id="focusChatFileInput" accept="image/*,.pdf,.xlsx,.xls,.csv,.doc,.docx,.txt,.json,.md" multiple style="display:none;" onchange="handleChatFileSelect(event, 'focus')">
+                <button class="chat-attach-btn" onclick="document.getElementById('focusChatFileInput').click()" title="上传文件">📎</button>
                 <input type="text" id="focusChatInput" class="chat-input" placeholder="说点什么..." onkeypress="if(event.key==='Enter')sendFocusChatMessage()">
                 <button class="chat-send-btn" onclick="sendFocusChatMessage()">发送</button>
             </div>
@@ -4197,10 +4321,13 @@
             const keyEl = document.getElementById(type === 'primary' ? 'apiKey' : 'backupKey');
             const selectEl = document.getElementById(type === 'primary' ? 'apiModelSelect' : 'backupModelSelect');
             const modelEl = document.getElementById(type === 'primary' ? 'apiModel' : 'backupModel');
+            const providerEl = document.getElementById(type === 'primary' ? 'apiProvider' : 'backupProvider');
             const btn = event.target;
             
-            const baseUrl = urlEl.value.replace('/chat/completions', '').replace('/messages', '');
+            const baseUrl = urlEl.value.replace('/chat/completions', '').replace('/messages', '').replace(/\/+$/, '');
             const key = keyEl.value;
+            const provider = providerEl ? providerEl.value : '';
+            const isGoogle = provider === 'google' || baseUrl.includes('generativelanguage.googleapis.com');
             
             if (!key) {
                 alert('请先输入API密钥');
@@ -4211,19 +4338,38 @@
             btn.textContent = '拉取中...';
             
             try {
-                const response = await fetch(baseUrl + '/models', {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${key}`
-                    }
-                });
+                let response;
+                if (isGoogle) {
+                    response = await fetch(baseUrl + '/models?key=' + key, {
+                        method: 'GET'
+                    });
+                } else {
+                    response = await fetch(baseUrl + '/models', {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bearer ${key}`
+                        }
+                    });
+                }
                 
                 if (!response.ok) {
                     throw new Error('获取模型列表失败');
                 }
                 
                 const data = await response.json();
-                const models = data.data || data.models || [];
+                let models = [];
+                
+                if (isGoogle) {
+                    // Google格式: { models: [{ name: "models/gemini-pro", ... }] }
+                    models = (data.models || []).map(m => {
+                        const fullName = m.name || '';
+                        return fullName.replace(/^models\//, '');
+                    }).filter(n => n);
+                } else {
+                    // OpenAI兼容格式: { data: [{ id: "gpt-4", ... }] }
+                    const rawModels = data.data || data.models || [];
+                    models = rawModels.map(m => m.id || m.name || m).filter(n => n);
+                }
                 
                 if (models.length === 0) {
                     alert('未找到可用模型');
@@ -4232,8 +4378,7 @@
                 
                 // 填充下拉框
                 selectEl.innerHTML = '<option value="">选择模型...</option>';
-                models.forEach(m => {
-                    const modelId = m.id || m.name || m;
+                models.forEach(modelId => {
                     selectEl.innerHTML += `<option value="${modelId}">${modelId}</option>`;
                 });
                 
@@ -5894,6 +6039,7 @@
             
             const aiName = getAIName();
             document.getElementById('focusChatTitle').textContent = aiName + ' - ' + currentFocusTask.desc;
+            clearPendingAttachments('focus');
             
             // 检查是否需要生成开场白
             let history = loadFocusChatHistory();
@@ -5996,12 +6142,17 @@
             localStorage.setItem(key, JSON.stringify(history));
         }
 
-        function deleteFocusChatHistory(desc) {
-            // 从任务数据中删除
+        async function deleteFocusChatHistory(desc) {
+            // 收集所有附件ID并删除
             const labels = ['学习', '工作', '家务', '充电'];
             for (const label of labels) {
                 const task = tasks[label]?.find(t => t.desc === desc);
                 if (task) {
+                    if (task.focusChatHistory) {
+                        for (const msg of task.focusChatHistory) {
+                            await deleteAttachmentsForMessage(msg);
+                        }
+                    }
                     task.focusChatHistory = [];
                     saveTasks();
                     break;
@@ -6069,14 +6220,19 @@
                         : `<div class="chat-avatar">AI</div>`;
                 }
                 
+                const attachHtml = buildAttachmentHTML(msg.attachments);
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `chat-message ${isUser ? 'user' : 'ai'}`;
                 messageDiv.dataset.msgIndex = index;
                 messageDiv.innerHTML = `
                     ${avatarHtml}
-                    <div class="chat-bubble">${escapeHtml(msg.content)}</div>
+                    <div class="chat-bubble">${escapeHtml(msg.content)}${attachHtml}</div>
                 `;
                 container.appendChild(messageDiv);
+                
+                if (msg.attachments && msg.attachments.length > 0) {
+                    loadAttachmentImages(messageDiv);
+                }
                 
                 // 添加长按删除功能
                 setupFocusChatLongPress(messageDiv, index);
@@ -6104,8 +6260,10 @@
             });
         }
 
-        function deleteFocusChatMessage(index) {
+        async function deleteFocusChatMessage(index) {
             let history = loadFocusChatHistory();
+            const msg = history[index];
+            await deleteAttachmentsForMessage(msg);
             history.splice(index, 1);
             saveFocusChatHistory(history);
             renderFocusChatHistory();
@@ -6114,13 +6272,20 @@
         async function sendFocusChatMessage() {
             const input = document.getElementById('focusChatInput');
             const message = input.value.trim();
-            if (!message || !currentFocusTask) return;
+            const attachments = pendingFocusAttachments.length > 0 ? [...pendingFocusAttachments] : null;
+            
+            if ((!message && (!attachments || attachments.length === 0)) || !currentFocusTask) return;
             
             input.value = '';
+            clearPendingAttachments('focus');
             
             // 添加用户消息
             let history = loadFocusChatHistory();
-            history.push({ role: 'user', content: message });
+            const userMsg = { role: 'user', content: message || '(发送了文件)' };
+            if (attachments && attachments.length > 0) {
+                userMsg.attachments = attachments;
+            }
+            history.push(userMsg);
             saveFocusChatHistory(history);
             renderFocusChatHistory();
             
@@ -6159,10 +6324,28 @@
 感想: ${thoughts || '无'}
 用户精力: ${energy}%
 用户心情: ${moods[moodIndex]}
-可安排时间: 午${morningStart}-${morningEnd}, 中${noonStart}-${noonEnd}, 晚${eveningStart}-${eveningEnd}`;
+可安排时间: 午${morningStart}-${morningEnd}, 中${noonStart}-${noonEnd}, 晚${eveningStart}-${eveningEnd}
+如果用户发送了图片或文件，请根据内容理解并回应`;
 
-            // 构建消息历史
-            const messages = history.map(h => ({ role: h.role, content: h.content }));
+            // 构建消息历史，最后一条如果有附件则用vision格式
+            const messages = [];
+            for (const h of history) {
+                if (h.attachments && h.attachments.length > 0) {
+                    const fileParts = await getAttachmentBase64ForAPI(h.attachments);
+                    if (fileParts && fileParts.length > 0) {
+                        const contentArr = [];
+                        if (h.content && h.content !== '(发送了文件)') {
+                            contentArr.push({ type: 'text', text: h.content });
+                        }
+                        contentArr.push(...fileParts);
+                        messages.push({ role: h.role, content: contentArr });
+                    } else {
+                        messages.push({ role: h.role, content: h.content });
+                    }
+                } else {
+                    messages.push({ role: h.role, content: h.content });
+                }
+            }
             
             // 添加loading
             const container = document.getElementById('focusChatContainer');
@@ -7213,6 +7396,266 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
             expiredTasksMap = {};
         }
 
+        // ==================== Chat Files IndexedDB ====================
+        const chatFilesDB = {
+            _db: null,
+            _dbName: 'ChatFilesDB',
+            _storeName: 'files',
+            _version: 1,
+
+            open() {
+                if (this._db) return Promise.resolve(this._db);
+                return new Promise((resolve, reject) => {
+                    const req = indexedDB.open(this._dbName, this._version);
+                    req.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains(this._storeName)) {
+                            db.createObjectStore(this._storeName, { keyPath: 'id' });
+                        }
+                    };
+                    req.onsuccess = (e) => { this._db = e.target.result; resolve(this._db); };
+                    req.onerror = (e) => reject(e.target.error);
+                });
+            },
+
+            async saveFile(file) {
+                const db = await this.open();
+                const id = 'cf_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+                const record = { id, name: file.name, type: file.type, size: file.size, data: file, createdAt: Date.now() };
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(this._storeName, 'readwrite');
+                    tx.objectStore(this._storeName).put(record);
+                    tx.oncomplete = () => resolve(record);
+                    tx.onerror = (e) => reject(e.target.error);
+                });
+            },
+
+            async getFile(id) {
+                const db = await this.open();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(this._storeName, 'readonly');
+                    const req = tx.objectStore(this._storeName).get(id);
+                    req.onsuccess = () => resolve(req.result || null);
+                    req.onerror = (e) => reject(e.target.error);
+                });
+            },
+
+            async deleteFile(id) {
+                const db = await this.open();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(this._storeName, 'readwrite');
+                    tx.objectStore(this._storeName).delete(id);
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = (e) => reject(e.target.error);
+                });
+            },
+
+            async deleteFiles(ids) {
+                if (!ids || ids.length === 0) return;
+                const db = await this.open();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(this._storeName, 'readwrite');
+                    const store = tx.objectStore(this._storeName);
+                    ids.forEach(id => store.delete(id));
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = (e) => reject(e.target.error);
+                });
+            },
+
+            async fileToBase64(file) {
+                return new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+            }
+        };
+
+        // Pending attachments state
+        let pendingChatAttachments = [];   // for aiChatModal
+        let pendingFocusAttachments = [];  // for focusChatModal
+
+        async function handleChatFileSelect(event, mode) {
+            const files = Array.from(event.target.files);
+            if (!files.length) return;
+            const pending = mode === 'focus' ? pendingFocusAttachments : pendingChatAttachments;
+            const containerId = mode === 'focus' ? 'focusChatPendingAttachments' : 'chatPendingAttachments';
+
+            for (const file of files) {
+                const record = await chatFilesDB.saveFile(file);
+                pending.push({ fileId: record.id, name: record.name, type: record.type, size: record.size });
+            }
+            renderPendingAttachments(containerId, pending, mode);
+            event.target.value = '';
+        }
+
+        function renderPendingAttachments(containerId, pending, mode) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            pending.forEach((att, idx) => {
+                const chip = document.createElement('div');
+                chip.className = 'chat-pending-chip';
+                const icon = getFileIcon(att.type);
+                chip.innerHTML = `
+                    <span>${icon}</span>
+                    <span class="chip-name">${escapeHtml(att.name)}</span>
+                    <span class="chip-remove" onclick="removePendingAttachment('${mode}', ${idx})">×</span>
+                `;
+                container.appendChild(chip);
+            });
+        }
+
+        function removePendingAttachment(mode, idx) {
+            const pending = mode === 'focus' ? pendingFocusAttachments : pendingChatAttachments;
+            const containerId = mode === 'focus' ? 'focusChatPendingAttachments' : 'chatPendingAttachments';
+            const removed = pending.splice(idx, 1);
+            if (removed.length > 0) chatFilesDB.deleteFile(removed[0].fileId);
+            renderPendingAttachments(containerId, pending, mode);
+        }
+
+        function clearPendingAttachments(mode) {
+            if (mode === 'focus') {
+                pendingFocusAttachments = [];
+                const c = document.getElementById('focusChatPendingAttachments');
+                if (c) c.innerHTML = '';
+            } else {
+                pendingChatAttachments = [];
+                const c = document.getElementById('chatPendingAttachments');
+                if (c) c.innerHTML = '';
+            }
+        }
+
+        function getFileIcon(type) {
+            if (!type) return '📄';
+            if (type.startsWith('image/')) return '🖼️';
+            if (type.includes('pdf')) return '📕';
+            if (type.includes('sheet') || type.includes('excel') || type.includes('csv')) return '📊';
+            if (type.includes('word') || type.includes('document')) return '📝';
+            if (type.includes('json')) return '📋';
+            if (type.includes('text')) return '📄';
+            return '📎';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + 'B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + 'MB';
+        }
+
+        function buildAttachmentHTML(attachments) {
+            if (!attachments || attachments.length === 0) return '';
+            let html = '<div class="chat-attachment-list">';
+            attachments.forEach(att => {
+                if (att.type && att.type.startsWith('image/')) {
+                    html += `<img class="chat-attachment-image" data-file-id="${att.fileId}" alt="${escapeHtml(att.name)}" onclick="previewChatImage('${att.fileId}')">`;
+                } else {
+                    const icon = getFileIcon(att.type);
+                    html += `<a class="chat-attachment-file" onclick="downloadChatFile('${att.fileId}')" title="${escapeHtml(att.name)}">
+                        <span class="file-icon">${icon}</span>
+                        <span class="file-info">
+                            <span class="file-name">${escapeHtml(att.name)}</span>
+                            <span class="file-size">${formatFileSize(att.size)}</span>
+                        </span>
+                    </a>`;
+                }
+            });
+            html += '</div>';
+            return html;
+        }
+
+        async function loadAttachmentImages(container) {
+            const imgs = container.querySelectorAll('.chat-attachment-image[data-file-id]');
+            for (const img of imgs) {
+                const fileId = img.dataset.fileId;
+                if (img.src && img.src !== '' && !img.src.endsWith('/')) continue;
+                try {
+                    const record = await chatFilesDB.getFile(fileId);
+                    if (record && record.data) {
+                        img.src = URL.createObjectURL(record.data);
+                    }
+                } catch (e) {
+                    console.error('加载附件图片失败:', e);
+                }
+            }
+        }
+
+        async function previewChatImage(fileId) {
+            try {
+                const record = await chatFilesDB.getFile(fileId);
+                if (record && record.data) {
+                    const url = URL.createObjectURL(record.data);
+                    const win = window.open('');
+                    if (win) {
+                        win.document.write(`<html><head><title>${escapeHtml(record.name)}</title><style>body{margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#000;}img{max-width:100%;max-height:100vh;object-fit:contain;}</style></head><body><img src="${url}"></body></html>`);
+                    }
+                }
+            } catch (e) {
+                alert('无法预览该图片');
+            }
+        }
+
+        async function downloadChatFile(fileId) {
+            try {
+                const record = await chatFilesDB.getFile(fileId);
+                if (record && record.data) {
+                    const url = URL.createObjectURL(record.data);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = record.name;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    setTimeout(() => URL.revokeObjectURL(url), 100);
+                }
+            } catch (e) {
+                alert('无法下载该文件');
+            }
+        }
+
+        async function deleteAttachmentsForMessage(msg) {
+            if (msg && msg.attachments && msg.attachments.length > 0) {
+                const ids = msg.attachments.map(a => a.fileId);
+                await chatFilesDB.deleteFiles(ids);
+            }
+        }
+
+        async function getAttachmentBase64ForAPI(attachments) {
+            if (!attachments || attachments.length === 0) return null;
+            const contentParts = [];
+            for (const att of attachments) {
+                try {
+                    const record = await chatFilesDB.getFile(att.fileId);
+                    if (!record || !record.data) continue;
+                    if (att.type && att.type.startsWith('image/')) {
+                        const base64 = await chatFilesDB.fileToBase64(record.data);
+                        contentParts.push({
+                            type: 'image_url',
+                            image_url: { url: base64 }
+                        });
+                    } else {
+                        // Non-image files: read as text if possible, otherwise just metadata
+                        try {
+                            const text = await record.data.text();
+                            const preview = text.substring(0, 2000);
+                            contentParts.push({
+                                type: 'text',
+                                text: `[附件: ${att.name} (${formatFileSize(att.size)})]\n${preview}${text.length > 2000 ? '\n...(内容已截断)' : ''}`
+                            });
+                        } catch (e) {
+                            contentParts.push({
+                                type: 'text',
+                                text: `[附件: ${att.name} (${formatFileSize(att.size)})]`
+                            });
+                        }
+                    }
+                } catch (e) {
+                    console.error('读取附件失败:', e);
+                }
+            }
+            return contentParts.length > 0 ? contentParts : null;
+        }
+
         // ==================== AI Chat Mode ====================
         let chatHistory = [];
         let chatSuggestedTasks = [];
@@ -7278,6 +7721,7 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
             const aiName = getAIName();
             document.getElementById('chatModalTitle').textContent = aiName;
             document.getElementById('chatInput').value = '';
+            clearPendingAttachments('ai');
             
             // 加载保存的聊天记录
             loadChatHistory();
@@ -7345,7 +7789,9 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
             });
         }
 
-        function deleteChatMessage(index) {
+        async function deleteChatMessage(index) {
+            const msg = chatHistory[index];
+            await deleteAttachmentsForMessage(msg);
             chatHistory.splice(index, 1);
             saveChatHistory();
             loadChatHistory();
@@ -7373,15 +7819,21 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
                     : `<div class="chat-avatar">${userName.charAt(0).toUpperCase()}</div>`;
             }
             
-            messageDiv.innerHTML = avatarHtml + `<div class="chat-bubble">${escapeHtml(content).replace(/\n/g, '<br>')}</div>`;
+            const msg = chatHistory[index];
+            const attachHtml = msg ? buildAttachmentHTML(msg.attachments) : '';
+            messageDiv.innerHTML = avatarHtml + `<div class="chat-bubble">${escapeHtml(content).replace(/\n/g, '<br>')}${attachHtml}</div>`;
             container.appendChild(messageDiv);
+            
+            if (msg && msg.attachments && msg.attachments.length > 0) {
+                loadAttachmentImages(messageDiv);
+            }
             
             setupLongPress(messageDiv, index);
             
             container.scrollTop = container.scrollHeight;
         }
 
-        function addChatMessage(role, content, taskData = null) {
+        function addChatMessage(role, content, taskData = null, attachments = null) {
             const container = document.getElementById('chatContainer');
             const aiAvatar = getAIAvatar();
             const userAvatar = getUserAvatar();
@@ -7405,7 +7857,8 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
                     : `<div class="chat-avatar">${userName.charAt(0).toUpperCase()}</div>`;
             }
             
-            let bubbleContent = `<div class="chat-bubble">${escapeHtml(content).replace(/\n/g, '<br>')}</div>`;
+            const attachHtml = buildAttachmentHTML(attachments);
+            let bubbleContent = `<div class="chat-bubble">${escapeHtml(content).replace(/\n/g, '<br>')}${attachHtml}</div>`;
             
             if (taskData) {
                 bubbleContent += renderChatTaskCard(taskData);
@@ -7414,11 +7867,19 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
             messageDiv.innerHTML = avatarHtml + `<div class="chat-bubble-wrapper">${bubbleContent}</div>`;
             container.appendChild(messageDiv);
             
+            if (attachments && attachments.length > 0) {
+                loadAttachmentImages(messageDiv);
+            }
+            
             setupLongPress(messageDiv, msgIndex);
             
             container.scrollTop = container.scrollHeight;
             
-            chatHistory.push({ role, content });
+            const msgObj = { role, content };
+            if (attachments && attachments.length > 0) {
+                msgObj.attachments = attachments;
+            }
+            chatHistory.push(msgObj);
             saveChatHistory();
         }
 
@@ -7615,10 +8076,13 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
             const input = document.getElementById('chatInput');
             const message = input.value.trim();
             
-            if (!message) return;
+            const attachments = pendingChatAttachments.length > 0 ? [...pendingChatAttachments] : null;
             
-            addChatMessage('user', message);
+            if (!message && (!attachments || attachments.length === 0)) return;
+            
+            addChatMessage('user', message || '(发送了文件)', null, attachments);
             input.value = '';
+            clearPendingAttachments('ai');
             addTypingIndicator();
             
             const primaryAPI = getAPISettings();
@@ -7650,14 +8114,28 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
 2. estimate: 简单30,中等60,复杂120+ | ddl: 默认今天23:59 | reminder: 开始前30分钟
 3. 用户问任务列表→列出名称和DDL
 4. 用户要修改→输出修改后的任务块
-5. 回复简洁，不废话`;
+5. 回复简洁，不废话
+6. 如果用户发送了图片或文件，请根据内容理解并回应`;
+
+                // Build user content with possible vision/file parts
+                let userContent;
+                const fileParts = await getAttachmentBase64ForAPI(attachments);
+                if (fileParts && fileParts.length > 0) {
+                    userContent = [];
+                    if (message) {
+                        userContent.push({ type: 'text', text: message });
+                    }
+                    userContent.push(...fileParts);
+                } else {
+                    userContent = message || '';
+                }
 
                 let content;
                 try {
-                    content = await callAIAPI(primaryAPI, systemPrompt, message);
+                    content = await callAIAPIWithContent(primaryAPI, systemPrompt, userContent);
                 } catch (primaryError) {
                     if (backupAPI.provider && backupAPI.key) {
-                        content = await callAIAPI(backupAPI, systemPrompt, message);
+                        content = await callAIAPIWithContent(backupAPI, systemPrompt, userContent);
                     } else {
                         throw primaryError;
                     }
@@ -7688,6 +8166,38 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                 removeTypingIndicator();
                 addChatMessage('ai', '请求失败: ' + error.message);
             }
+        }
+
+        async function callAIAPIWithContent(apiConfig, systemPrompt, userContent) {
+            let apiUrl = apiConfig.url;
+            if (!apiUrl.endsWith('/chat/completions') && !apiUrl.endsWith('/messages')) {
+                apiUrl = apiUrl.replace(/\/+$/, '');
+                apiUrl += '/chat/completions';
+            }
+            
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiConfig.key}`
+                },
+                body: JSON.stringify({
+                    model: apiConfig.model,
+                    messages: [
+                        { role: 'system', content: systemPrompt },
+                        { role: 'user', content: userContent }
+                    ],
+                    temperature: 0.7
+                })
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`API请求失败 (${response.status}): ${errorText}`);
+            }
+            
+            const data = await response.json();
+            return data.choices[0].message.content;
         }
 
         function confirmChatTask(index) {
