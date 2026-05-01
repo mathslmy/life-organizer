@@ -9359,81 +9359,78 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                 return;
             }
 
-            // 如果有正在播放的，先淡出再切换
-            if (bgmAudio && !bgmAudio.paused) {
-                const oldAudio = bgmAudio;
-                stopLoopCheck();
-                fadeOutBgm(oldAudio, 500, 0).then(() => {
-                    oldAudio.pause();
-                    oldAudio.onended = null;
-                    oldAudio.oncanplaythrough = null;
-                    if (bgmAudio === oldAudio) bgmAudio = null;
-                    startNewBgm(bgm);
-                });
-            } else {
-                stopLoopCheck();
-                if (bgmAudio) {
-                    bgmAudio.onended = null;
-                    bgmAudio.oncanplaythrough = null;
-                    bgmAudio.pause();
-                    bgmAudio = null;
-                }
-                startNewBgm(bgm);
+            stopLoopCheck();
+
+            // 复用同一个 Audio 元素（移动端每次 new Audio 会丢失 user-gesture unlock）
+            if (!bgmAudio) {
+                bgmAudio = new Audio();
             }
-            
-            bgmIsPaused = false;
-        }
 
-        // 开始播放新BGM（内部函数）
-        function startNewBgm(bgm) {
-            const audio = new Audio();
-            audio.loop = false;
-            audio.volume = 0;
-            let canplayHandled = false;
+            // 停止当前播放
+            bgmAudio.pause();
+            bgmAudio.onended = null;
 
-            bgmAudio = audio;
+            // 切换源并立刻播放（保持在 user gesture 调用栈内）
+            bgmAudio.volume = 0;
+            bgmAudio.currentTime = 0;
+            bgmAudio.src = bgm.url;
 
-            audio.oncanplaythrough = () => {
-                if (canplayHandled) return;
-                canplayHandled = true;
-                // 若此audio已不是当前播放对象，放弃
-                if (bgmAudio !== audio) { audio.pause(); return; }
-                audio.play().then(() => {
-                    if (bgmAudio !== audio) { audio.pause(); return; }
+            const playPromise = bgmAudio.play();
+
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
                     isBgmPlaying = true;
                     bgmIsPaused = false;
                     updateBgmButton();
                     showSyncStatus(`正在播放: ${bgm.name}`);
-                    fadeInBgm(audio);
+                    fadeInBgm(bgmAudio);
                 }).catch(e => {
                     console.error('播放失败:', e);
-                    if (bgmAudio === audio) showSyncStatus('播放失败，请重试');
+                    // play()被拒（可能音频未就绪），等canplay后重试
+                    bgmAudio.oncanplay = function() {
+                        bgmAudio.oncanplay = null;
+                        bgmAudio.play().then(() => {
+                            isBgmPlaying = true;
+                            bgmIsPaused = false;
+                            updateBgmButton();
+                            showSyncStatus(`正在播放: ${bgm.name}`);
+                            fadeInBgm(bgmAudio);
+                        }).catch(err => {
+                            console.error('重试播放失败:', err);
+                            showSyncStatus('播放失败，请重试');
+                        });
+                    };
                 });
-            };
+            }
 
-            audio.onended = () => {
-                // 若此audio已不是当前播放对象，忽略
-                if (bgmAudio !== audio) return;
+            // 设置结束回调（复用同一个元素，所以不需要身份校验）
+            bgmAudio.onended = function() {
                 if (loopMode === 'one') {
-                    // 单曲循环：重新播放同一首
-                    audio.currentTime = 0;
-                    audio.volume = 0;
-                    audio.play().then(() => {
-                        fadeInBgm(audio);
+                    bgmAudio.currentTime = 0;
+                    bgmAudio.volume = 0;
+                    bgmAudio.play().then(() => {
+                        fadeInBgm(bgmAudio);
                     }).catch(e => console.error('单曲循环失败:', e));
                 } else {
                     handleTrackEnd();
                 }
             };
 
-            audio.onerror = () => {
-                if (bgmAudio !== audio) return;
+            bgmAudio.onerror = function() {
                 showSyncStatus('音频加载失败');
                 isBgmPlaying = false;
                 updateBgmButton();
             };
 
-            audio.src = bgm.url;
+            bgmIsPaused = false;
+        }
+
+        // startNewBgm 保留为 playBgm 的别名，兼容可能的外部调用
+        function startNewBgm(bgm) {
+            const activeList = getActiveBgmList();
+            const idx = activeList.findIndex(b => b.url === bgm.url);
+            if (idx >= 0) currentBgmIndex = idx;
+            playBgm();
         }
 
         // 曲目播放结束后根据循环模式处理
@@ -9464,12 +9461,8 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             stopLoopCheck();
             
             if (bgmAudio && !bgmAudio.paused) {
-                const audio = bgmAudio;
-                fadeOutBgm(audio, 500, 0).then(() => {
-                    if (audio) {
-                        audio.pause();
-                        // 不重置 currentTime，保留播放进度
-                    }
+                fadeOutBgm(bgmAudio, 500, 0).then(() => {
+                    if (bgmAudio) bgmAudio.pause();
                     isBgmPlaying = false;
                     bgmIsPaused = true;
                     updateBgmButton();
