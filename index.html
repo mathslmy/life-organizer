@@ -9218,8 +9218,8 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
 
         // BGM淡入淡出配置
         const BGM_FADE_DURATION = 1000; // 淡入淡出时长（毫秒）- 循环衔接用1秒
-        const BGM_TARGET_VOLUME = 0.5; // 目标音量
-        const BGM_CROSSFADE_MIN_VOLUME = 0.25; // 循环交叉淡入淡出的最低音量（目标音量的一半）
+        function getBgmTargetVolume() { return musicVolume / 100; } // 目标音量：跟随用户音量滑块
+        function getBgmCrossfadeMinVolume() { return getBgmTargetVolume() * 0.5; } // 交叉淡入淡出最低音量
         let bgmFadeOutInterval = null; // 淡出定时器
         let bgmFadeInInterval = null; // 淡入定时器
         let bgmLoopCheckInterval = null; // 循环检测定时器
@@ -9227,7 +9227,8 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         let bgmIsPaused = false; // 是否处于暂停状态
 
         // 淡入效果
-        function fadeInBgm(audio, duration = BGM_FADE_DURATION, startVolume = 0, targetVolume = BGM_TARGET_VOLUME) {
+        function fadeInBgm(audio, duration = BGM_FADE_DURATION, startVolume = 0, targetVolume = null) {
+            if (targetVolume === null) targetVolume = getBgmTargetVolume();
             if (bgmFadeInInterval) {
                 clearInterval(bgmFadeInInterval);
                 bgmFadeInInterval = null;
@@ -9249,6 +9250,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
 
         // 淡出效果（返回Promise），可指定目标音量
         function fadeOutBgm(audio, duration = BGM_FADE_DURATION, targetVolume = 0) {
+            // targetVolume=0 means full fade out, no change needed here
             return new Promise((resolve) => {
                 if (!audio || audio.paused) {
                     resolve();
@@ -9296,13 +9298,21 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                     // 创建新的音频对象从头开始
                     bgmNextAudio = new Audio(bgmUrl);
                     bgmNextAudio.loop = false;
-                    bgmNextAudio.volume = BGM_CROSSFADE_MIN_VOLUME; // 从0.25开始
+                    const crossfadeMin = getBgmCrossfadeMinVolume();
+                    const crossfadeTarget = getBgmTargetVolume();
+                    bgmNextAudio.volume = crossfadeMin;
                     
-                    bgmNextAudio.oncanplaythrough = () => {
+                    function startCrossfadePlay() {
                         bgmNextAudio.play().then(() => {
-                            // 从0.25淡入到0.5
-                            fadeInBgm(bgmNextAudio, BGM_FADE_DURATION, BGM_CROSSFADE_MIN_VOLUME, BGM_TARGET_VOLUME);
+                            fadeInBgm(bgmNextAudio, BGM_FADE_DURATION, crossfadeMin, crossfadeTarget);
                         }).catch(e => console.error('循环播放失败:', e));
+                    }
+                    
+                    bgmNextAudio.oncanplaythrough = startCrossfadePlay;
+                    // 备用：canplay事件，防止oncanplaythrough在缓存时不触发
+                    bgmNextAudio.oncanplay = function() {
+                        if (bgmNextAudio && bgmNextAudio.readyState >= 3) return; // oncanplaythrough会处理
+                        startCrossfadePlay();
                     };
                     
                     bgmNextAudio.onerror = () => {
@@ -9311,8 +9321,8 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                     
                     bgmNextAudio.load();
                     
-                    // 当前音频从0.5淡出到0.25
-                    fadeOutBgm(audio, BGM_FADE_DURATION, BGM_CROSSFADE_MIN_VOLUME);
+                    // 当前音频淡出到交叉最低音量
+                    fadeOutBgm(audio, BGM_FADE_DURATION, crossfadeMin);
                 }
                 
                 // 当前音频播放完毕，切换到新音频
@@ -9383,17 +9393,28 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             bgmAudio.loop = false;
             bgmAudio.volume = 0;
             
-            bgmAudio.oncanplaythrough = () => {
+            let playStarted = false;
+            
+            function doPlay() {
+                if (playStarted || !bgmAudio) return;
+                playStarted = true;
                 bgmAudio.play().then(() => {
                     isBgmPlaying = true;
                     bgmIsPaused = false;
                     updateBgmButton();
                     showSyncStatus(`正在播放: ${bgm.name}`);
-                    fadeInBgm(bgmAudio);
+                    fadeInBgm(bgmAudio, BGM_FADE_DURATION, 0, getBgmTargetVolume());
                 }).catch(e => {
+                    playStarted = false;
                     console.error('播放失败:', e);
                     showSyncStatus('播放失败，请重试');
                 });
+            }
+            
+            bgmAudio.oncanplaythrough = doPlay;
+            bgmAudio.oncanplay = function() { if (!playStarted) doPlay(); };
+            bgmAudio.onloadeddata = function() {
+                setTimeout(() => { if (!playStarted && bgmAudio && bgmAudio.readyState >= 2) doPlay(); }, 200);
             };
 
             bgmAudio.onended = () => {
@@ -9402,7 +9423,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                     bgmAudio.currentTime = 0;
                     bgmAudio.volume = 0;
                     bgmAudio.play().then(() => {
-                        fadeInBgm(bgmAudio);
+                        fadeInBgm(bgmAudio, BGM_FADE_DURATION, 0, getBgmTargetVolume());
                     }).catch(e => console.error('单曲循环失败:', e));
                 } else {
                     handleTrackEnd();
@@ -9467,7 +9488,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                     isBgmPlaying = true;
                     bgmIsPaused = false;
                     updateBgmButton();
-                    fadeInBgm(bgmAudio);
+                    fadeInBgm(bgmAudio, BGM_FADE_DURATION, 0, getBgmTargetVolume());
                     const activeList = getActiveBgmList();
                     const bgm = activeList[currentBgmIndex];
                     showSyncStatus(`继续播放: ${bgm?.name || 'BGM'}`);
@@ -9511,12 +9532,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                 currentBgmIndex = (currentBgmIndex + 1) % activeList.length;
             }
             renderPlaylist();
-            
-            if (isBgmPlaying || bgmAudio) {
-                playBgm();
-            } else {
-                showSyncStatus(`下一首: ${activeList[currentBgmIndex].name}`);
-            }
+            playBgm();
         }
 
         // 更新BGM按钮状态
@@ -9756,7 +9772,16 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         // 设置音量
         function setMusicVolume(value) {
             musicVolume = parseInt(value);
-            if (bgmAudio) bgmAudio.volume = musicVolume / 100;
+            // 取消正在进行的淡入淡出，让用户手动设置立即生效
+            if (bgmFadeInInterval) {
+                clearInterval(bgmFadeInInterval);
+                bgmFadeInInterval = null;
+            }
+            if (bgmFadeOutInterval) {
+                clearInterval(bgmFadeOutInterval);
+                bgmFadeOutInterval = null;
+            }
+            if (bgmAudio && !bgmAudio.paused) bgmAudio.volume = musicVolume / 100;
             localStorage.setItem('musicVolume', musicVolume);
         }
 
