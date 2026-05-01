@@ -9414,26 +9414,22 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
 
             const playPromise = bgmAudio.play();
 
+            // 同步设状态，不等 promise（play()可能不返回promise，或resolve很慢）
+            isBgmPlaying = true;
+            bgmIsPaused = false;
+            updateBgmButton();
+            fadeInBgm(bgmAudio);
+
             if (playPromise !== undefined) {
                 playPromise.then(() => {
-                    isBgmPlaying = true;
-                    bgmIsPaused = false;
-                    updateBgmButton();
                     showSyncStatus(`正在播放: ${bgm.name}`);
-                    fadeInBgm(bgmAudio);
                 }).catch(e => {
                     console.error('播放失败:', e);
-                    // play()被拒（可能音频未就绪），等canplay后重试
                     bgmAudio.oncanplay = function() {
                         bgmAudio.oncanplay = null;
-                        bgmAudio.play().then(() => {
-                            isBgmPlaying = true;
-                            bgmIsPaused = false;
+                        bgmAudio.play().catch(err => {
+                            isBgmPlaying = false;
                             updateBgmButton();
-                            showSyncStatus(`正在播放: ${bgm.name}`);
-                            fadeInBgm(bgmAudio);
-                        }).catch(err => {
-                            console.error('重试播放失败:', err);
                             showSyncStatus('播放失败，请重试');
                         });
                     };
