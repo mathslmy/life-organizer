@@ -9227,7 +9227,9 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         let bgmIsPaused = false; // 是否处于暂停状态
 
         // 淡入效果
-        function fadeInBgm(audio, duration = BGM_FADE_DURATION, startVolume = 0, targetVolume = BGM_TARGET_VOLUME) {
+        function fadeInBgm(audio, duration = BGM_FADE_DURATION, startVolume = 0, targetVolume = null) {
+            if (targetVolume === null) targetVolume = musicVolume / 100;
+            if (targetVolume <= 0) targetVolume = 0.01;
             if (bgmFadeInInterval) {
                 clearInterval(bgmFadeInInterval);
                 bgmFadeInInterval = null;
@@ -9357,34 +9359,29 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                 return;
             }
 
-            // 如果有正在播放的，先淡出再切换
-            if (bgmAudio && !bgmAudio.paused) {
-                stopLoopCheck();
-                fadeOutBgm(bgmAudio, 500, 0).then(() => {
-                    bgmAudio.pause();
-                    bgmAudio = null;
-                    startNewBgm(bgm);
-                });
-            } else {
-                stopLoopCheck();
-                if (bgmAudio) {
-                    bgmAudio.pause();
-                    bgmAudio = null;
-                }
-                startNewBgm(bgm);
-            }
-            
-            bgmIsPaused = false;
-        }
+            stopLoopCheck();
 
-        // 开始播放新BGM（内部函数）
-        function startNewBgm(bgm) {
-            bgmAudio = new Audio(bgm.url);
-            bgmAudio.loop = false;
+            // 复用同一个 Audio 元素（移动端每次 new Audio 会丢失 user-gesture unlock）
+            if (!bgmAudio) {
+                bgmAudio = new Audio();
+            }
+
+            // 停止当前播放
+            bgmAudio.pause();
+            bgmAudio.onended = null;
+
+            // 切换源并立刻播放（保持在 user gesture 调用栈内）
             bgmAudio.volume = 0;
-            
-            bgmAudio.oncanplaythrough = () => {
-                bgmAudio.play().then(() => {
+            bgmAudio.currentTime = 0;
+            bgmAudio.src = bgm.url;
+
+            // 单曲循环用浏览器原生 loop，不依赖 onended 手动重播
+            bgmAudio.loop = (loopMode === 'one');
+
+            const playPromise = bgmAudio.play();
+
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
                     isBgmPlaying = true;
                     bgmIsPaused = false;
                     updateBgmButton();
@@ -9392,30 +9389,43 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                     fadeInBgm(bgmAudio);
                 }).catch(e => {
                     console.error('播放失败:', e);
-                    showSyncStatus('播放失败，请重试');
+                    // play()被拒（可能音频未就绪），等canplay后重试
+                    bgmAudio.oncanplay = function() {
+                        bgmAudio.oncanplay = null;
+                        bgmAudio.play().then(() => {
+                            isBgmPlaying = true;
+                            bgmIsPaused = false;
+                            updateBgmButton();
+                            showSyncStatus(`正在播放: ${bgm.name}`);
+                            fadeInBgm(bgmAudio);
+                        }).catch(err => {
+                            console.error('重试播放失败:', err);
+                            showSyncStatus('播放失败，请重试');
+                        });
+                    };
                 });
+            }
+
+            // onended 只在非单曲循环时触发（loop=true时浏览器不触发ended）
+            bgmAudio.onended = function() {
+                handleTrackEnd();
             };
 
-            bgmAudio.onended = () => {
-                if (loopMode === 'one') {
-                    // 单曲循环：重新播放同一首
-                    bgmAudio.currentTime = 0;
-                    bgmAudio.volume = 0;
-                    bgmAudio.play().then(() => {
-                        fadeInBgm(bgmAudio);
-                    }).catch(e => console.error('单曲循环失败:', e));
-                } else {
-                    handleTrackEnd();
-                }
-            };
-
-            bgmAudio.onerror = () => {
+            bgmAudio.onerror = function() {
                 showSyncStatus('音频加载失败');
                 isBgmPlaying = false;
                 updateBgmButton();
             };
 
-            bgmAudio.load();
+            bgmIsPaused = false;
+        }
+
+        // startNewBgm 保留为 playBgm 的别名，兼容可能的外部调用
+        function startNewBgm(bgm) {
+            const activeList = getActiveBgmList();
+            const idx = activeList.findIndex(b => b.url === bgm.url);
+            if (idx >= 0) currentBgmIndex = idx;
+            playBgm();
         }
 
         // 曲目播放结束后根据循环模式处理
@@ -9447,10 +9457,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             
             if (bgmAudio && !bgmAudio.paused) {
                 fadeOutBgm(bgmAudio, 500, 0).then(() => {
-                    if (bgmAudio) {
-                        bgmAudio.pause();
-                        // 不重置 currentTime，保留播放进度
-                    }
+                    if (bgmAudio) bgmAudio.pause();
                     isBgmPlaying = false;
                     bgmIsPaused = true;
                     updateBgmButton();
@@ -9511,12 +9518,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                 currentBgmIndex = (currentBgmIndex + 1) % activeList.length;
             }
             renderPlaylist();
-            
-            if (isBgmPlaying || bgmAudio) {
-                playBgm();
-            } else {
-                showSyncStatus(`下一首: ${activeList[currentBgmIndex].name}`);
-            }
+            playBgm();
         }
 
         // 更新BGM按钮状态
@@ -9741,6 +9743,8 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                 loopMode = 'all';
                 showSyncStatus('列表循环');
             }
+            // 同步 audio.loop 属性
+            if (bgmAudio) bgmAudio.loop = (loopMode === 'one');
             localStorage.setItem('loopMode', loopMode);
             updateLoopModeIcon();
         }
@@ -9756,6 +9760,11 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         // 设置音量
         function setMusicVolume(value) {
             musicVolume = parseInt(value);
+            // 停掉正在跑的淡入，否则 interval 每30ms把音量覆写回去
+            if (bgmFadeInInterval) {
+                clearInterval(bgmFadeInInterval);
+                bgmFadeInInterval = null;
+            }
             if (bgmAudio) bgmAudio.volume = musicVolume / 100;
             localStorage.setItem('musicVolume', musicVolume);
         }
@@ -9796,7 +9805,8 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         function selectAndPlayBgm(index) {
             currentBgmIndex = index;
             playBgm();
-            document.getElementById('playlistPopup').classList.remove('show');
+            const popup = document.getElementById('playlistPopup');
+            if (popup) popup.classList.remove('show');
         }
 
         // 上一首
