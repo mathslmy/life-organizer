@@ -9384,6 +9384,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             // 复用同一个 Audio 元素（移动端每次 new Audio 会丢失 user-gesture unlock）
             if (!bgmAudio) {
                 bgmAudio = new Audio();
+                bgmAudio.crossOrigin = 'anonymous';
                 // 用 Web Audio API GainNode 控制音量（iOS 上 audio.volume 只读）
                 try {
                     bgmAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
