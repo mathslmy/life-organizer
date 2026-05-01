@@ -9218,147 +9218,89 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             modal.style.display = 'flex';
         }
 
-        // BGM淡入淡出配置
-        const BGM_FADE_DURATION = 1000; // 淡入淡出时长（毫秒）- 循环衔接用1秒
-        const BGM_TARGET_VOLUME = 0.5; // 目标音量
-        const BGM_CROSSFADE_MIN_VOLUME = 0.25; // 循环交叉淡入淡出的最低音量（目标音量的一半）
-        let bgmFadeOutInterval = null; // 淡出定时器
-        let bgmFadeInInterval = null; // 淡入定时器
-        let bgmLoopCheckInterval = null; // 循环检测定时器
-        let bgmNextAudio = null; // 用于无缝循环的下一个音频对象
-        let bgmIsPaused = false; // 是否处于暂停状态
+        // ===== 音量 & 播放模式（提前声明，确保后续函数可访问） =====
+        let loopMode = localStorage.getItem('loopMode') || 'all';
+        let musicVolume = parseInt(localStorage.getItem('musicVolume')) || 50;
 
-        // 统一设置音量（通过 GainNode，iOS 兼容）
+        // BGM淡入淡出配置
+        const BGM_FADE_DURATION = 800; // 淡入淡出时长（毫秒）
+        let bgmFadeRAF = null;       // 淡入/淡出 requestAnimationFrame id
+        let bgmIsPaused = false;     // 是否处于暂停状态
+
+        // ---------- 获取用户目标增益值 ----------
+        function bgmTargetGain() {
+            var v = musicVolume / 100;
+            return v > 0 ? v : 0;
+        }
+
+        // ---------- 统一设置增益（通过 GainNode，iOS 兼容）----------
         function bgmSetGain(val) {
+            val = Math.max(0, Math.min(1, val)); // clamp 0-1
             if (bgmGainNode) {
-                bgmGainNode.gain.value = val;
+                try { bgmGainNode.gain.setValueAtTime(val, bgmAudioCtx.currentTime); } catch(e) { bgmGainNode.gain.value = val; }
             } else if (bgmAudio) {
-                bgmAudio.volume = val;
+                try { bgmAudio.volume = val; } catch(e) { /* iOS read-only, ignore */ }
             }
         }
 
         function bgmGetGain() {
             if (bgmGainNode) return bgmGainNode.gain.value;
-            if (bgmAudio) return bgmAudio.volume;
+            if (bgmAudio) { try { return bgmAudio.volume; } catch(e) {} }
             return 0;
         }
 
-        // 淡入效果
-        function fadeInBgm(audio, duration = BGM_FADE_DURATION, startVolume = 0, targetVolume = null) {
-            if (targetVolume === null) targetVolume = musicVolume / 100;
+        // ---------- 淡入效果（基于 rAF，精准流畅）----------
+        function fadeInBgm(targetVolume) {
+            if (bgmFadeRAF) { cancelAnimationFrame(bgmFadeRAF); bgmFadeRAF = null; }
+            if (targetVolume === undefined || targetVolume === null) targetVolume = bgmTargetGain();
             if (targetVolume <= 0) targetVolume = 0.01;
-            if (bgmFadeInInterval) {
-                clearInterval(bgmFadeInInterval);
-                bgmFadeInInterval = null;
-            }
-            
-            bgmSetGain(startVolume);
-            let currentVol = startVolume;
-            const step = (targetVolume - startVolume) / (duration / 30);
-            
-            bgmFadeInInterval = setInterval(() => {
-                currentVol += step;
-                if (currentVol < targetVolume) {
-                    bgmSetGain(currentVol);
+
+            var startVol = bgmGetGain();
+            var startTime = performance.now();
+
+            function tick(now) {
+                var elapsed = now - startTime;
+                var progress = Math.min(elapsed / BGM_FADE_DURATION, 1);
+                // ease-out curve
+                var eased = 1 - Math.pow(1 - progress, 2);
+                var vol = startVol + (targetVolume - startVol) * eased;
+                bgmSetGain(vol);
+                if (progress < 1) {
+                    bgmFadeRAF = requestAnimationFrame(tick);
                 } else {
-                    bgmSetGain(targetVolume);
-                    clearInterval(bgmFadeInInterval);
-                    bgmFadeInInterval = null;
+                    bgmFadeRAF = null;
                 }
-            }, 30);
+            }
+            bgmFadeRAF = requestAnimationFrame(tick);
         }
 
-        // 淡出效果（返回Promise），可指定目标音量
-        function fadeOutBgm(audio, duration = BGM_FADE_DURATION, targetVolume = 0) {
-            return new Promise((resolve) => {
-                if (!audio || audio.paused) {
-                    resolve();
-                    return;
-                }
-                
-                if (bgmFadeOutInterval) {
-                    clearInterval(bgmFadeOutInterval);
-                    bgmFadeOutInterval = null;
-                }
-                
-                let currentVol = bgmGetGain();
-                const step = (currentVol - targetVolume) / (duration / 30);
-                
-                bgmFadeOutInterval = setInterval(() => {
-                    currentVol -= step;
-                    if (currentVol > targetVolume) {
-                        bgmSetGain(currentVol);
+        // ---------- 淡出效果（返回 Promise）----------
+        function fadeOutBgm(targetVolume, duration) {
+            if (targetVolume === undefined) targetVolume = 0;
+            if (duration === undefined) duration = BGM_FADE_DURATION;
+            return new Promise(function(resolve) {
+                if (bgmFadeRAF) { cancelAnimationFrame(bgmFadeRAF); bgmFadeRAF = null; }
+                if (!bgmAudio || bgmAudio.paused) { resolve(); return; }
+
+                var startVol = bgmGetGain();
+                if (startVol <= targetVolume) { bgmSetGain(targetVolume); resolve(); return; }
+                var startTime = performance.now();
+
+                function tick(now) {
+                    var elapsed = now - startTime;
+                    var progress = Math.min(elapsed / duration, 1);
+                    var eased = 1 - Math.pow(1 - progress, 2);
+                    var vol = startVol - (startVol - targetVolume) * eased;
+                    bgmSetGain(vol);
+                    if (progress < 1) {
+                        bgmFadeRAF = requestAnimationFrame(tick);
                     } else {
-                        bgmSetGain(targetVolume);
-                        clearInterval(bgmFadeOutInterval);
-                        bgmFadeOutInterval = null;
+                        bgmFadeRAF = null;
                         resolve();
                     }
-                }, 30);
+                }
+                bgmFadeRAF = requestAnimationFrame(tick);
             });
-        }
-
-        // 启动循环衔接检测
-        function startLoopCheck(audio, bgmUrl) {
-            if (bgmLoopCheckInterval) {
-                clearInterval(bgmLoopCheckInterval);
-            }
-            
-            bgmLoopCheckInterval = setInterval(() => {
-                if (!audio || audio.paused || !isBgmPlaying) {
-                    clearInterval(bgmLoopCheckInterval);
-                    bgmLoopCheckInterval = null;
-                    return;
-                }
-                
-                const timeLeft = audio.duration - audio.currentTime;
-                
-                // 当剩余1秒时，开始交叉淡入淡出
-                if (timeLeft <= 1 && timeLeft > 0 && !bgmNextAudio) {
-                    // 创建新的音频对象从头开始
-                    bgmNextAudio = new Audio(bgmUrl);
-                    bgmNextAudio.loop = false;
-                    bgmNextAudio.volume = BGM_CROSSFADE_MIN_VOLUME; // 从0.25开始
-                    
-                    bgmNextAudio.oncanplaythrough = () => {
-                        bgmNextAudio.play().then(() => {
-                            // 从0.25淡入到0.5
-                            fadeInBgm(bgmNextAudio, BGM_FADE_DURATION, BGM_CROSSFADE_MIN_VOLUME, BGM_TARGET_VOLUME);
-                        }).catch(e => console.error('循环播放失败:', e));
-                    };
-                    
-                    bgmNextAudio.onerror = () => {
-                        bgmNextAudio = null;
-                    };
-                    
-                    bgmNextAudio.load();
-                    
-                    // 当前音频从0.5淡出到0.25
-                    fadeOutBgm(audio, BGM_FADE_DURATION, BGM_CROSSFADE_MIN_VOLUME);
-                }
-                
-                // 当前音频播放完毕，切换到新音频
-                if (audio.ended || audio.currentTime >= audio.duration - 0.05) {
-                    if (bgmNextAudio) {
-                        audio.pause();
-                        bgmAudio = bgmNextAudio;
-                        bgmNextAudio = null;
-                        startLoopCheck(bgmAudio, bgmUrl);
-                    }
-                }
-            }, 100);
-        }
-
-        // 停止循环检测
-        function stopLoopCheck() {
-            if (bgmLoopCheckInterval) {
-                clearInterval(bgmLoopCheckInterval);
-                bgmLoopCheckInterval = null;
-            }
-            if (bgmNextAudio) {
-                bgmNextAudio.pause();
-                bgmNextAudio = null;
-            }
         }
 
         // 播放BGM（带淡入）- 用于首次播放或切换歌曲
@@ -9379,65 +9321,80 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                 return;
             }
 
-            stopLoopCheck();
+            // 取消正在进行的淡入淡出
+            if (bgmFadeRAF) { cancelAnimationFrame(bgmFadeRAF); bgmFadeRAF = null; }
 
-            // 复用同一个 Audio 元素（移动端每次 new Audio 会丢失 user-gesture unlock）
+            // ---------- 确保 AudioContext + GainNode 只创建一次 ----------
             if (!bgmAudio) {
                 bgmAudio = new Audio();
                 bgmAudio.crossOrigin = 'anonymous';
-                // 用 Web Audio API GainNode 控制音量（iOS 上 audio.volume 只读）
+                bgmAudio.preload = 'auto';
                 try {
                     bgmAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    bgmGainNode = bgmAudioCtx.createGain();
                     var source = bgmAudioCtx.createMediaElementSource(bgmAudio);
+                    bgmGainNode = bgmAudioCtx.createGain();
+                    bgmGainNode.gain.value = 0;
                     source.connect(bgmGainNode);
                     bgmGainNode.connect(bgmAudioCtx.destination);
-                    bgmGainNode.gain.value = 0;
-                } catch(e) { console.error('AudioContext init failed:', e); }
+                    console.log('[BGM] AudioContext + GainNode 创建成功');
+                } catch(e) {
+                    console.warn('[BGM] AudioContext 创建失败，将使用 audio.volume:', e);
+                    bgmAudioCtx = null;
+                    bgmGainNode = null;
+                }
             }
 
             // iOS AudioContext 可能被挂起，需要在用户手势中 resume
             if (bgmAudioCtx && bgmAudioCtx.state === 'suspended') {
-                bgmAudioCtx.resume();
+                bgmAudioCtx.resume().catch(function(){});
             }
 
             // 停止当前播放
             bgmAudio.pause();
             bgmAudio.onended = null;
 
-            // 切换源并立刻播放
+            // 音量归零后切换源
             bgmSetGain(0);
             bgmAudio.currentTime = 0;
             bgmAudio.src = bgm.url;
 
-            // 单曲循环用浏览器原生 loop，不依赖 onended 手动重播
+            // 单曲循环用浏览器原生 loop
             bgmAudio.loop = (loopMode === 'one');
 
-            const playPromise = bgmAudio.play();
-
-            // 同步设状态，不等 promise（play()可能不返回promise，或resolve很慢）
+            // 先设状态，再播放
             isBgmPlaying = true;
             bgmIsPaused = false;
             updateBgmButton();
-            fadeInBgm(bgmAudio);
+
+            var playPromise = bgmAudio.play();
 
             if (playPromise !== undefined) {
-                playPromise.then(() => {
-                    showSyncStatus(`正在播放: ${bgm.name}`);
-                }).catch(e => {
-                    console.error('播放失败:', e);
+                playPromise.then(function() {
+                    // 播放成功，淡入到用户设置的音量
+                    fadeInBgm();
+                    showSyncStatus('正在播放: ' + bgm.name);
+                    console.log('[BGM] 播放成功, 目标音量:', bgmTargetGain());
+                }).catch(function(e) {
+                    console.error('[BGM] play() 被拒绝:', e);
+                    // 等资源就绪后重试
                     bgmAudio.oncanplay = function() {
                         bgmAudio.oncanplay = null;
-                        bgmAudio.play().catch(err => {
+                        bgmAudio.play().then(function() {
+                            fadeInBgm();
+                            showSyncStatus('正在播放: ' + bgm.name);
+                        }).catch(function() {
                             isBgmPlaying = false;
                             updateBgmButton();
-                            showSyncStatus('播放失败，请重试');
+                            showSyncStatus('播放失败，请点击重试');
                         });
                     };
                 });
+            } else {
+                // 旧浏览器不返回 Promise
+                fadeInBgm();
             }
 
-            // onended 只在非单曲循环时触发（loop=true时浏览器不触发ended）
+            // onended 只在非单曲循环时触发
             bgmAudio.onended = function() {
                 handleTrackEnd();
             };
@@ -9482,14 +9439,14 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             playBgm();
         }
 
-        // 暂停BGM
+        // 暂停BGM（带淡出）
         function pauseBgm() {
-            stopLoopCheck();
-            if (bgmFadeInInterval) { clearInterval(bgmFadeInInterval); bgmFadeInInterval = null; }
-            if (bgmFadeOutInterval) { clearInterval(bgmFadeOutInterval); bgmFadeOutInterval = null; }
+            if (bgmFadeRAF) { cancelAnimationFrame(bgmFadeRAF); bgmFadeRAF = null; }
             
             if (bgmAudio && !bgmAudio.paused) {
-                bgmAudio.pause();
+                fadeOutBgm(0, 300).then(function() {
+                    if (bgmAudio) bgmAudio.pause();
+                });
             }
             isBgmPlaying = false;
             bgmIsPaused = true;
@@ -9500,17 +9457,17 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         function resumeBgm() {
             if (bgmAudio && bgmIsPaused) {
                 bgmSetGain(0);
-                if (bgmAudioCtx && bgmAudioCtx.state === 'suspended') bgmAudioCtx.resume();
-                bgmAudio.play().then(() => {
+                if (bgmAudioCtx && bgmAudioCtx.state === 'suspended') bgmAudioCtx.resume().catch(function(){});
+                bgmAudio.play().then(function() {
                     isBgmPlaying = true;
                     bgmIsPaused = false;
                     updateBgmButton();
-                    fadeInBgm(bgmAudio);
+                    fadeInBgm();
                     const activeList = getActiveBgmList();
                     const bgm = activeList[currentBgmIndex];
-                    showSyncStatus(`继续播放: ${bgm?.name || 'BGM'}`);
-                }).catch(e => {
-                    console.error('恢复播放失败:', e);
+                    showSyncStatus('继续播放: ' + (bgm ? bgm.name : 'BGM'));
+                }).catch(function(e) {
+                    console.error('[BGM] 恢复播放失败:', e);
                     showSyncStatus('恢复失败，请重试');
                 });
             } else {
@@ -9670,8 +9627,6 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         // ==================== 音乐播放器控制 ====================
         
         let musicPlayerCollapsed = true;
-        let loopMode = 'all';
-        let musicVolume = 50;
 
         // 切换播放器
         function toggleMusicPlayer() {
@@ -9705,20 +9660,12 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                 collapseMusicPlayer();
             }
             
-            // 恢复循环模式
-            const savedLoop = localStorage.getItem('loopMode');
-            if (savedLoop) {
-                loopMode = savedLoop;
-                updateLoopModeIcon();
-            }
+            // 同步循环模式图标（loopMode 已在声明时从 localStorage 加载）
+            updateLoopModeIcon();
             
-            // 恢复音量
-            const savedVolume = localStorage.getItem('musicVolume');
-            if (savedVolume) {
-                musicVolume = parseInt(savedVolume);
-                const slider = document.getElementById('volumeSlider');
-                if (slider) slider.value = musicVolume;
-            }
+            // 同步音量滑块（musicVolume 已在声明时从 localStorage 加载）
+            const slider = document.getElementById('volumeSlider');
+            if (slider) slider.value = musicVolume;
 
             // 给音量滑块加事件备份（防止oninput在部分浏览器不触发）
             const volSlider = document.getElementById('volumeSlider');
@@ -9805,8 +9752,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         // 设置音量
         function setMusicVolume(value) {
             musicVolume = parseInt(value) || 0;
-            if (bgmFadeInInterval) { clearInterval(bgmFadeInInterval); bgmFadeInInterval = null; }
-            if (bgmFadeOutInterval) { clearInterval(bgmFadeOutInterval); bgmFadeOutInterval = null; }
+            if (bgmFadeRAF) { cancelAnimationFrame(bgmFadeRAF); bgmFadeRAF = null; }
             bgmSetGain(musicVolume / 100);
             localStorage.setItem('musicVolume', musicVolume);
         }
