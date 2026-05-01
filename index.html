@@ -9503,6 +9503,13 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         function playNextBgm() {
             const activeList = getActiveBgmList();
             if (activeList.length === 0) return;
+
+            // 单曲循环模式下不切歌，重播当前
+            if (loopMode === 'one') {
+                if (bgmAudio) { bgmAudio.currentTime = 0; }
+                if (!isBgmPlaying) playBgm();
+                return;
+            }
             
             if (loopMode === 'shuffle') {
                 if (activeList.length === 1) {
@@ -9681,6 +9688,13 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                 const slider = document.getElementById('volumeSlider');
                 if (slider) slider.value = musicVolume;
             }
+
+            // 给音量滑块加事件备份（防止oninput在部分浏览器不触发）
+            const volSlider = document.getElementById('volumeSlider');
+            if (volSlider) {
+                volSlider.addEventListener('input', function() { setMusicVolume(this.value); });
+                volSlider.addEventListener('change', function() { setMusicVolume(this.value); });
+            }
         }
 
         // 更新播放器UI
@@ -9759,12 +9773,10 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
 
         // 设置音量
         function setMusicVolume(value) {
-            musicVolume = parseInt(value);
-            // 停掉正在跑的淡入，否则 interval 每30ms把音量覆写回去
-            if (bgmFadeInInterval) {
-                clearInterval(bgmFadeInInterval);
-                bgmFadeInInterval = null;
-            }
+            musicVolume = parseInt(value) || 0;
+            // 停掉所有淡入淡出，防止 interval 覆写音量
+            if (bgmFadeInInterval) { clearInterval(bgmFadeInInterval); bgmFadeInInterval = null; }
+            if (bgmFadeOutInterval) { clearInterval(bgmFadeOutInterval); bgmFadeOutInterval = null; }
             if (bgmAudio) bgmAudio.volume = musicVolume / 100;
             localStorage.setItem('musicVolume', musicVolume);
         }
@@ -9813,6 +9825,14 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         function playPrevBgm() {
             const activeList = getActiveBgmList();
             if (activeList.length === 0) return;
+
+            // 单曲循环模式下不切歌，重播当前
+            if (loopMode === 'one') {
+                if (bgmAudio) { bgmAudio.currentTime = 0; }
+                if (!isBgmPlaying) playBgm();
+                return;
+            }
+
             currentBgmIndex = (currentBgmIndex - 1 + activeList.length) % activeList.length;
             renderPlaylist();
             playBgm();
