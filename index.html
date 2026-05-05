@@ -982,6 +982,293 @@
             color: white;
         }
 
+        /* BGM 来源切换开关 */
+        .bgm-source-toggle {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .bgm-source-label {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-muted);
+            transition: color 0.3s;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .bgm-source-label.active {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .bgm-toggle-track {
+            width: 44px;
+            height: 24px;
+            border-radius: 12px;
+            background: var(--bg-tertiary);
+            position: relative;
+            cursor: pointer;
+            transition: background 0.3s;
+            flex-shrink: 0;
+        }
+
+        .bgm-toggle-track.netease {
+            background: #e74c3c;
+        }
+
+        .bgm-toggle-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: white;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.3s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        .bgm-toggle-track.netease .bgm-toggle-thumb {
+            transform: translateX(20px);
+        }
+
+        /* 网易云歌曲列表 */
+        .netease-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 8px 20px 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .netease-song-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            gap: 10px;
+            position: relative;
+        }
+
+        .netease-song-item.active {
+            border-color: #e74c3c;
+            background: rgba(231, 76, 60, 0.06);
+        }
+
+        .netease-song-info {
+            flex: 1;
+            min-width: 0;
+            cursor: pointer;
+        }
+
+        .netease-song-title {
+            font-size: 14px;
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .netease-song-artist {
+            font-size: 11px;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .netease-song-del {
+            width: 24px;
+            height: 24px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 16px;
+            flex-shrink: 0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .netease-song-del:hover {
+            background: rgba(231, 76, 60, 0.1);
+            color: #e74c3c;
+        }
+
+        .netease-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 4px 20px 12px;
+        }
+
+        .netease-action-btn {
+            width: 100%;
+            padding: 10px;
+            border-radius: 10px;
+            border: none;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .netease-action-btn.primary {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .netease-action-btn.secondary {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .netease-empty {
+            padding: 20px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        /* 网易云弹窗 */
+        .netease-modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            padding: 20px;
+        }
+
+        .netease-modal {
+            background: var(--bg-primary);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 360px;
+            overflow: hidden;
+        }
+
+        .netease-modal-header {
+            padding: 16px 20px 12px;
+            font-size: 16px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .netease-modal-body {
+            padding: 0 20px 20px;
+        }
+
+        .netease-modal-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            font-size: 14px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            resize: none;
+            outline: none;
+            font-family: inherit;
+        }
+
+        .netease-modal-input:focus {
+            border-color: #e74c3c;
+        }
+
+        .netease-modal-btns {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .netease-modal-btns button {
+            flex: 1;
+            padding: 10px;
+            border-radius: 10px;
+            border: none;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+
+        .netease-modal-btns .btn-cancel {
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+        }
+
+        .netease-modal-btns .btn-confirm {
+            background: #e74c3c;
+            color: white;
+        }
+
+        /* 缓存进度条 */
+        .netease-progress-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10001;
+            padding: 20px;
+        }
+
+        .netease-progress-box {
+            background: var(--bg-primary);
+            border-radius: 16px;
+            padding: 24px;
+            width: 100%;
+            max-width: 300px;
+            text-align: center;
+        }
+
+        .netease-progress-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .netease-progress-song {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .netease-progress-bar-bg {
+            height: 6px;
+            background: var(--bg-tertiary);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .netease-progress-bar-fill {
+            height: 100%;
+            background: #e74c3c;
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .netease-progress-text {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
         .time-presets {
             display: flex;
             gap: 8px;
@@ -3354,22 +3641,84 @@
         </div>
 
         <div class="settings-group">
-            <div class="settings-item" onclick="toggleBgmSection()">
-                <span class="settings-item-label">🎵 BGM 设置</span>
-                <span class="settings-item-arrow" id="bgmSectionArrow">›</span>
+            <div class="settings-item" style="display:flex;align-items:center;">
+                <span class="settings-item-label" onclick="toggleBgmSection()" style="flex:1;cursor:pointer;">🎵 BGM 设置</span>
+                <!-- 来源切换开关 -->
+                <div class="bgm-source-toggle" onclick="event.stopPropagation();">
+                    <span class="bgm-source-label active" id="labelLocal">本地</span>
+                    <div class="bgm-toggle-track" id="bgmSourceToggle" onclick="toggleBgmSource()">
+                        <div class="bgm-toggle-thumb"></div>
+                    </div>
+                    <span class="bgm-source-label" id="labelNetease">网易云</span>
+                </div>
+                <span class="settings-item-arrow" id="bgmSectionArrow" onclick="toggleBgmSection()" style="cursor:pointer;margin-left:8px;">›</span>
             </div>
             <div class="bgm-section-content" id="bgmSectionContent">
-                <div class="bgm-list" id="bgmList">
-                    <!-- 动态生成BGM列表 -->
+                <!-- 本地BGM列表 -->
+                <div id="bgmLocalPanel">
+                    <div class="bgm-list" id="bgmList">
+                        <!-- 动态生成BGM列表 -->
+                    </div>
+                    <div class="settings-item" onclick="refreshBgmList()">
+                        <span class="settings-item-label" style="color: var(--accent);">🔄 刷新BGM列表</span>
+                    </div>
                 </div>
-                <div class="settings-item" onclick="refreshBgmList()">
-                    <span class="settings-item-label" style="color: var(--accent);">🔄 刷新BGM列表</span>
+
+                <!-- 网易云BGM列表 -->
+                <div id="bgmNeteasePanel" style="display:none;">
+                    <div class="netease-list" id="neteaseList">
+                        <div class="netease-empty">暂无歌曲<br>点击下方按钮添加</div>
+                    </div>
+                    <div class="netease-actions">
+                        <button class="netease-action-btn primary" onclick="neteaseAddSingle()">＋ 添加单曲</button>
+                        <button class="netease-action-btn secondary" onclick="neteaseAddPlaylist()">📋 导入歌单</button>
+                        <button class="netease-action-btn secondary" onclick="neteaseCacheAll()">⟳ 一键刷新链接</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 存储管理 -->
+        <div class="settings-group">
+            <div class="settings-item" onclick="toggleStorageSection()">
+                <span class="settings-item-label">💾 存储管理</span>
+                <span class="settings-item-arrow" id="storageSectionArrow">›</span>
+            </div>
+            <div class="storage-section-content" id="storageSectionContent" style="max-height:0;overflow:hidden;transition:max-height 0.3s ease;">
+                <!-- 持久化状态 -->
+                <div style="padding: 12px 20px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                        <span style="font-size:14px;">持久化存储</span>
+                        <span id="storageStatusBadge" style="font-size:12px;padding:3px 10px;border-radius:10px;background:var(--bg-tertiary);color:var(--text-muted);">检测中...</span>
+                    </div>
+                    <p id="storageStatusDesc" style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:10px;">
+                        正在检测存储状态...
+                    </p>
+                    <button id="storageRequestBtn" onclick="requestPersistentStorage()" style="display:none;width:100%;padding:10px;border-radius:10px;border:none;background:var(--accent);color:white;font-size:13px;font-weight:500;cursor:pointer;">
+                        🔒 申请持久化授权
+                    </button>
+                </div>
+                <!-- 用量统计 -->
+                <div style="padding: 0 20px 12px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                        <span style="font-size:13px;color:var(--text-secondary);">存储用量</span>
+                        <span id="storageUsageText" style="font-size:12px;color:var(--text-muted);">计算中...</span>
+                    </div>
+                    <div style="height:6px;background:var(--bg-tertiary);border-radius:3px;overflow:hidden;">
+                        <div id="storageUsageBar" style="height:100%;background:#22c55e;border-radius:3px;width:0%;transition:width 0.5s;"></div>
+                    </div>
+                    <div id="storageDetail" style="font-size:11px;color:var(--text-muted);margin-top:6px;line-height:1.6;"></div>
+                </div>
+                <!-- 操作按钮 -->
+                <div class="settings-item" onclick="refreshStorageInfo()" style="cursor:pointer;">
+                    <span class="settings-item-label" style="color: var(--accent);">🔄 刷新存储信息</span>
+                </div>
+                <div class="settings-item" onclick="confirmClearIDB()" style="cursor:pointer;">
+                    <span class="settings-item-label" style="color: #e74c3c;">🗑️ 清空 IndexedDB 数据</span>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- User Avatar Modal -->
     <div class="modal-overlay" id="avatarModal" onclick="hideModal('avatarModal')">
         <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header">
@@ -3908,6 +4257,281 @@
             if (typeof debounceSyncUserSettings === 'function') debounceSyncUserSettings();
         }
 
+        // ==================== IndexedDB 附件存储 ====================
+        let assetsDB = null;
+
+        function openAssetsDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open('AppAssets', 1);
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains('blobs')) {
+                        db.createObjectStore('blobs');
+                    }
+                };
+                request.onsuccess = (e) => { assetsDB = e.target.result; resolve(assetsDB); };
+                request.onerror = (e) => { console.error('AppAssets DB 失败:', e); reject(e); };
+            });
+        }
+
+        async function saveAsset(key, value) {
+            try {
+                if (!assetsDB) await openAssetsDB();
+                const tx = assetsDB.transaction('blobs', 'readwrite');
+                tx.objectStore('blobs').put(value, key);
+                await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+            } catch(e) { console.error('saveAsset 失败:', key, e); }
+        }
+
+        async function loadAsset(key) {
+            try {
+                if (!assetsDB) await openAssetsDB();
+                const tx = assetsDB.transaction('blobs', 'readonly');
+                const req = tx.objectStore('blobs').get(key);
+                return await new Promise((res, rej) => { req.onsuccess = () => res(req.result || null); req.onerror = () => rej(req.error); });
+            } catch(e) { console.error('loadAsset 失败:', key, e); return null; }
+        }
+
+        async function deleteAsset(key) {
+            try {
+                if (!assetsDB) await openAssetsDB();
+                const tx = assetsDB.transaction('blobs', 'readwrite');
+                tx.objectStore('blobs').delete(key);
+                await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+            } catch(e) { console.error('deleteAsset 失败:', key, e); }
+        }
+
+        // 判断是否为大数据（base64 data URL）
+        function isDataUrl(str) {
+            return typeof str === 'string' && str.startsWith('data:');
+        }
+
+        // ==================== 附件存储结束 ====================
+
+        // ==================== 存储管理 ====================
+
+        // 折叠/展开
+        function toggleStorageSection() {
+            const content = document.getElementById('storageSectionContent');
+            const arrow = document.getElementById('storageSectionArrow');
+            if (!content || !arrow) return;
+            const isOpen = content.style.maxHeight !== '0px' && content.style.maxHeight !== '';
+            if (isOpen) {
+                content.style.maxHeight = '0px';
+                arrow.classList.remove('expanded');
+            } else {
+                content.style.maxHeight = '600px';
+                arrow.classList.add('expanded');
+                refreshStorageInfo();
+            }
+        }
+
+        // 检测持久化状态并更新UI
+        async function checkPersistentStorage() {
+            const badge = document.getElementById('storageStatusBadge');
+            const desc = document.getElementById('storageStatusDesc');
+            const btn = document.getElementById('storageRequestBtn');
+            if (!badge) return;
+
+            if (!navigator.storage || !navigator.storage.persisted) {
+                badge.textContent = '不支持';
+                badge.style.background = 'rgba(231,76,60,0.15)';
+                badge.style.color = '#e74c3c';
+                desc.textContent = '当前浏览器不支持 Storage API，数据可能在存储空间不足时被清除。建议使用 Chrome / Edge / Safari 等现代浏览器。';
+                btn.style.display = 'none';
+                return;
+            }
+
+            const persisted = await navigator.storage.persisted();
+            if (persisted) {
+                badge.textContent = '已授权';
+                badge.style.background = 'rgba(34,197,94,0.15)';
+                badge.style.color = '#22c55e';
+                desc.textContent = '浏览器已授予持久化存储权限，IndexedDB 数据不会被自动清除。';
+                btn.style.display = 'none';
+            } else {
+                badge.textContent = '未授权';
+                badge.style.background = 'rgba(245,158,11,0.15)';
+                badge.style.color = '#f59e0b';
+                desc.textContent = '存储尚未持久化，浏览器可能在磁盘空间不足时自动清除数据（头像、背景图、网易云歌曲列表等）。建议点击下方按钮申请授权。';
+                btn.style.display = 'block';
+            }
+        }
+
+        // 申请持久化授权
+        async function requestPersistentStorage() {
+            const btn = document.getElementById('storageRequestBtn');
+            if (!navigator.storage || !navigator.storage.persist) {
+                showSyncStatus('浏览器不支持此功能');
+                return;
+            }
+
+            btn.textContent = '请求中...';
+            btn.disabled = true;
+
+            try {
+                const granted = await navigator.storage.persist();
+                if (granted) {
+                    showSyncStatus('持久化授权成功 ✓');
+                } else {
+                    showSyncStatus('授权被拒绝，请尝试将本站添加到书签或主屏幕后重试');
+                }
+            } catch(e) {
+                showSyncStatus('授权失败: ' + e.message);
+            }
+
+            btn.disabled = false;
+            btn.textContent = '🔒 申请持久化授权';
+            await checkPersistentStorage();
+        }
+
+        // 刷新存储用量信息
+        async function refreshStorageInfo() {
+            await checkPersistentStorage();
+
+            const usageText = document.getElementById('storageUsageText');
+            const usageBar = document.getElementById('storageUsageBar');
+            const detail = document.getElementById('storageDetail');
+
+            if (navigator.storage && navigator.storage.estimate) {
+                try {
+                    const est = await navigator.storage.estimate();
+                    const usedMB = (est.usage / 1024 / 1024).toFixed(2);
+                    const quotaMB = (est.quota / 1024 / 1024).toFixed(0);
+                    const pct = est.quota > 0 ? (est.usage / est.quota * 100) : 0;
+
+                    usageText.textContent = `${usedMB} MB / ${quotaMB} MB`;
+                    usageBar.style.width = Math.min(pct, 100) + '%';
+
+                    if (pct > 80) {
+                        usageBar.style.background = '#e74c3c';
+                    } else if (pct > 50) {
+                        usageBar.style.background = '#f59e0b';
+                    } else {
+                        usageBar.style.background = '#22c55e';
+                    }
+
+                    // 统计各DB大小
+                    let detailLines = [];
+                    try {
+                        const dbNames = ['NeteaseMusic', 'AppAssets'];
+                        for (const name of dbNames) {
+                            const size = await estimateDBSize(name);
+                            if (size >= 0) {
+                                detailLines.push(`${name}: ${formatBytes(size)}`);
+                            }
+                        }
+                    } catch(e) {}
+                    
+                    const lsSize = estimateLocalStorageSize();
+                    detailLines.push(`localStorage: ${formatBytes(lsSize)}`);
+
+                    detail.textContent = detailLines.join('　|　');
+                } catch(e) {
+                    usageText.textContent = '无法获取';
+                    detail.textContent = '';
+                }
+            } else {
+                usageText.textContent = '浏览器不支持';
+                detail.textContent = '';
+            }
+        }
+
+        // 估算单个IndexedDB数据库大小
+        function estimateDBSize(dbName) {
+            return new Promise((resolve) => {
+                const req = indexedDB.open(dbName);
+                req.onsuccess = (e) => {
+                    const db = e.target.result;
+                    const storeNames = Array.from(db.objectStoreNames);
+                    if (storeNames.length === 0) { db.close(); resolve(0); return; }
+
+                    let totalSize = 0;
+                    let done = 0;
+
+                    const tx = db.transaction(storeNames, 'readonly');
+                    for (const storeName of storeNames) {
+                        const store = tx.objectStore(storeName);
+                        const cursorReq = store.openCursor();
+                        cursorReq.onsuccess = (ev) => {
+                            const cursor = ev.target.result;
+                            if (cursor) {
+                                try {
+                                    const val = JSON.stringify(cursor.value);
+                                    totalSize += val.length * 2; // UTF-16
+                                } catch(e) {}
+                                cursor.continue();
+                            }
+                        };
+                    }
+                    tx.oncomplete = () => { db.close(); resolve(totalSize); };
+                    tx.onerror = () => { db.close(); resolve(-1); };
+                };
+                req.onerror = () => resolve(-1);
+            });
+        }
+
+        // 估算localStorage大小
+        function estimateLocalStorageSize() {
+            let total = 0;
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                total += (key.length + (localStorage.getItem(key) || '').length) * 2;
+            }
+            return total;
+        }
+
+        // 格式化字节
+        function formatBytes(bytes) {
+            if (bytes < 0) return '未知';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+        }
+
+        // 清空IndexedDB
+        function confirmClearIDB() {
+            if (!confirm('确定要清空所有 IndexedDB 数据吗？\n\n这将删除：\n• 网易云歌曲列表\n• 上传的头像/背景图\n\n此操作不可恢复。')) return;
+            clearAllIDB();
+        }
+
+        async function clearAllIDB() {
+            const dbNames = ['NeteaseMusic', 'AppAssets'];
+            for (const name of dbNames) {
+                try {
+                    // 关闭已打开的连接
+                    if (name === 'NeteaseMusic' && neteaseDB) { neteaseDB.close(); neteaseDB = null; }
+                    if (name === 'AppAssets' && assetsDB) { assetsDB.close(); assetsDB = null; }
+
+                    await new Promise((resolve, reject) => {
+                        const req = indexedDB.deleteDatabase(name);
+                        req.onsuccess = resolve;
+                        req.onerror = () => reject(req.error);
+                        req.onblocked = () => { console.warn(name + ' 删除被阻塞'); resolve(); };
+                    });
+                } catch(e) {
+                    console.error('删除 ' + name + ' 失败:', e);
+                }
+            }
+
+            // 清理localStorage中的__idb__标记
+            ['avatarUrl', 'aiAvatarUrl', 'bgUrl'].forEach(key => {
+                if (localStorage.getItem(key) === '__idb__') localStorage.removeItem(key);
+            });
+            localStorage.removeItem('neteasePlaylist');
+
+            // 重置内存状态
+            neteasePlaylist = [];
+            
+            showSyncStatus('IndexedDB 已清空');
+            await refreshStorageInfo();
+        }
+
+        // 页面加载后初始化存储状态（延迟执行，不阻塞）
+        setTimeout(() => { checkPersistentStorage(); }, 1500);
+
+        // ==================== 存储管理结束 ====================
+
         function uploadAvatar(event) {
             const file = event.target.files[0];
             if (file) {
@@ -3931,7 +4555,13 @@
         function setAvatarImage(src) {
             const avatar = document.getElementById('userAvatar');
             avatar.innerHTML = '<img src="' + src + '" alt="avatar">';
-            localStorage.setItem('avatarUrl', src);
+            // 大数据存IndexedDB，小链接存localStorage
+            if (isDataUrl(src)) {
+                saveAsset('avatarUrl', src);
+                localStorage.setItem('avatarUrl', '__idb__');
+            } else {
+                localStorage.setItem('avatarUrl', src);
+            }
             // 云同步
             if (typeof debounceSyncUserSettings === 'function') debounceSyncUserSettings();
         }
@@ -4034,7 +4664,12 @@
         function setAIAvatarImage(src) {
             const avatar = document.getElementById('aiAvatarSmall');
             avatar.innerHTML = '<img src="' + src + '" alt="AI">';
-            localStorage.setItem('aiAvatarUrl', src);
+            if (isDataUrl(src)) {
+                saveAsset('aiAvatarUrl', src);
+                localStorage.setItem('aiAvatarUrl', '__idb__');
+            } else {
+                localStorage.setItem('aiAvatarUrl', src);
+            }
             // 云同步
             if (typeof debounceSyncUserSettings === 'function') debounceSyncUserSettings();
         }
@@ -4077,7 +4712,12 @@
         function setBgImage(src) {
             document.body.style.backgroundImage = 'url(' + src + ')';
             document.body.classList.add('has-bg');
-            localStorage.setItem('bgUrl', src);
+            if (isDataUrl(src)) {
+                saveAsset('bgUrl', src);
+                localStorage.setItem('bgUrl', '__idb__');
+            } else {
+                localStorage.setItem('bgUrl', src);
+            }
             showBgOpacitySlider(true);
         }
 
@@ -4087,6 +4727,7 @@
             localStorage.removeItem('bgUrl');
             localStorage.removeItem('bgOpacity');
             localStorage.removeItem('bgBlur');
+            deleteAsset('bgUrl');
             document.body.style.removeProperty('--bg-overlay-opacity');
             document.body.style.removeProperty('--bg-blur');
             showBgOpacitySlider(false);
@@ -4167,19 +4808,40 @@
         }
 
         // Load saved settings
-        function loadSettings() {
+        async function loadSettings() {
+            // 确保 AssetsDB 就绪
+            await openAssetsDB();
+
+            // 一次性迁移：把localStorage中的base64大图搬到IndexedDB
+            for (const key of ['avatarUrl', 'aiAvatarUrl', 'bgUrl']) {
+                const val = localStorage.getItem(key);
+                if (val && isDataUrl(val)) {
+                    await saveAsset(key, val);
+                    localStorage.setItem(key, '__idb__');
+                    console.log('[Assets] 已迁移 ' + key + ' 到 IndexedDB');
+                }
+            }
+
             const savedName = localStorage.getItem('userName');
             if (savedName) {
                 document.getElementById('userName').value = savedName;
             }
             
+            // 头像：检查是否存在IndexedDB中
             const savedAvatar = localStorage.getItem('avatarUrl');
-            if (savedAvatar) {
+            if (savedAvatar === '__idb__') {
+                const data = await loadAsset('avatarUrl');
+                if (data) setAvatarImage(data);
+            } else if (savedAvatar) {
                 setAvatarImage(savedAvatar);
             }
 
+            // AI头像
             const savedAIAvatar = localStorage.getItem('aiAvatarUrl');
-            if (savedAIAvatar) {
+            if (savedAIAvatar === '__idb__') {
+                const data = await loadAsset('aiAvatarUrl');
+                if (data) setAIAvatarImage(data);
+            } else if (savedAIAvatar) {
                 setAIAvatarImage(savedAIAvatar);
             }
 
@@ -4188,17 +4850,26 @@
                 document.getElementById('aiName').value = savedAIName;
             }
 
+            // 背景图
             const savedBg = localStorage.getItem('bgUrl');
-            if (savedBg) {
+            if (savedBg === '__idb__') {
+                const data = await loadAsset('bgUrl');
+                if (data) {
+                    document.body.style.backgroundImage = 'url(' + data + ')';
+                    document.body.classList.add('has-bg');
+                    showBgOpacitySlider(true);
+                }
+            } else if (savedBg) {
                 setBgImage(savedBg);
-                const savedOpacity = localStorage.getItem('bgOpacity');
-                if (savedOpacity) {
-                    document.body.style.setProperty('--bg-overlay-opacity', savedOpacity / 100);
-                }
-                const savedBlur = localStorage.getItem('bgBlur');
-                if (savedBlur) {
-                    document.body.style.setProperty('--bg-blur', savedBlur + 'px');
-                }
+            }
+            // 背景参数（小数据，继续用localStorage）
+            const savedOpacity = localStorage.getItem('bgOpacity');
+            if (savedOpacity && document.body.classList.contains('has-bg')) {
+                document.body.style.setProperty('--bg-overlay-opacity', savedOpacity / 100);
+            }
+            const savedBlur = localStorage.getItem('bgBlur');
+            if (savedBlur && document.body.classList.contains('has-bg')) {
+                document.body.style.setProperty('--bg-blur', savedBlur + 'px');
             }
             
             const savedTheme = localStorage.getItem('theme');
@@ -6055,7 +6726,7 @@
 
         async function generateFocusChatGreeting() {
             const container = document.getElementById('focusChatContainer');
-            const aiAvatar = getAIAvatar();
+            const aiAvatar = await getAIAvatar();
             const aiName = getAIName();
             const aiAvatarHtml = aiAvatar 
                 ? `<div class="chat-avatar"><img src="${aiAvatar}" alt="${aiName}"></div>`
@@ -6197,11 +6868,11 @@
             URL.revokeObjectURL(url);
         }
 
-        function renderFocusChatHistory() {
+        async function renderFocusChatHistory() {
             const container = document.getElementById('focusChatContainer');
             const history = loadFocusChatHistory();
-            const aiAvatar = getAIAvatar();
-            const userAvatar = getUserAvatar();
+            const aiAvatar = await getAIAvatar();
+            const userAvatar = await getUserAvatar();
             const aiName = getAIName();
             const userName = getUserName();
             
@@ -6290,7 +6961,7 @@
             renderFocusChatHistory();
             
             // 获取头像
-            const aiAvatar = getAIAvatar();
+            const aiAvatar = await getAIAvatar();
             const aiName = getAIName();
             const aiAvatarHtml = aiAvatar 
                 ? `<div class="chat-avatar"><img src="${aiAvatar}" alt="${aiName}"></div>`
@@ -7660,14 +8331,16 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
         let chatHistory = [];
         let chatSuggestedTasks = [];
 
-        function getAIAvatar() {
-            const savedAvatar = localStorage.getItem('aiAvatarUrl');
-            return savedAvatar || null;
+        async function getAIAvatar() {
+            const saved = localStorage.getItem('aiAvatarUrl');
+            if (saved === '__idb__') return await loadAsset('aiAvatarUrl');
+            return saved || null;
         }
 
-        function getUserAvatar() {
-            const savedAvatar = localStorage.getItem('avatarUrl');
-            return savedAvatar || null;
+        async function getUserAvatar() {
+            const saved = localStorage.getItem('avatarUrl');
+            if (saved === '__idb__') return await loadAsset('avatarUrl');
+            return saved || null;
         }
 
         function getAIName() {
@@ -7744,7 +8417,7 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
             }
         }
 
-        function loadChatHistory() {
+        async function loadChatHistory() {
             const saved = localStorage.getItem('chatHistory');
             const container = document.getElementById('chatContainer');
             container.innerHTML = '';
@@ -7752,10 +8425,10 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
             
             if (saved) {
                 chatHistory = JSON.parse(saved);
-                // 渲染历史消息
-                chatHistory.forEach((msg, index) => {
-                    renderChatMessageOnly(msg.role, msg.content, index);
-                });
+                // 渲染历史消息（按顺序）
+                for (let i = 0; i < chatHistory.length; i++) {
+                    await renderChatMessageOnly(chatHistory[i].role, chatHistory[i].content, i);
+                }
             } else {
                 chatHistory = [];
             }
@@ -7797,10 +8470,10 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
             loadChatHistory();
         }
 
-        function renderChatMessageOnly(role, content, index) {
+        async function renderChatMessageOnly(role, content, index) {
             const container = document.getElementById('chatContainer');
-            const aiAvatar = getAIAvatar();
-            const userAvatar = getUserAvatar();
+            const aiAvatar = await getAIAvatar();
+            const userAvatar = await getUserAvatar();
             const aiName = getAIName();
             const userName = getUserName();
             
@@ -7833,10 +8506,10 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
             container.scrollTop = container.scrollHeight;
         }
 
-        function addChatMessage(role, content, taskData = null, attachments = null) {
+        async function addChatMessage(role, content, taskData = null, attachments = null) {
             const container = document.getElementById('chatContainer');
-            const aiAvatar = getAIAvatar();
-            const userAvatar = getUserAvatar();
+            const aiAvatar = await getAIAvatar();
+            const userAvatar = await getUserAvatar();
             const aiName = getAIName();
             const userName = getUserName();
             
@@ -8026,13 +8699,13 @@ ${extraRequirements ? '用户额外要求: ' + extraRequirements : ''}
             }
         }
 
-        function addTypingIndicator() {
+        async function addTypingIndicator() {
             const container = document.getElementById('chatContainer');
             const typingDiv = document.createElement('div');
             typingDiv.className = 'chat-message ai';
             typingDiv.id = 'typingIndicator';
             
-            const aiAvatar = getAIAvatar();
+            const aiAvatar = await getAIAvatar();
             const avatarHtml = aiAvatar 
                 ? `<div class="chat-avatar"><img src="${aiAvatar}" alt="AI"></div>`
                 : `<div class="chat-avatar">AI</div>`;
@@ -8441,6 +9114,8 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             if (!url || !key) return;
             
             const userId = getUserId();
+            const avatarVal = localStorage.getItem('avatarUrl') || '';
+            const aiAvatarVal = localStorage.getItem('aiAvatarUrl') || '';
             const settings = {
                 user_id: userId,
                 energy_level: parseInt(localStorage.getItem('energyLevel') || '70'),
@@ -8448,8 +9123,8 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                 user_name: localStorage.getItem('userName') || 'User',
                 ai_name: localStorage.getItem('aiName') || 'AI助手',
                 ai_persona: localStorage.getItem('aiPersona') || '你是一个温柔且有耐心的助手，善于鼓励用户完成任务。',
-                user_avatar: localStorage.getItem('avatarUrl') || '',
-                ai_avatar: localStorage.getItem('aiAvatarUrl') || '',
+                user_avatar: avatarVal === '__idb__' ? '' : avatarVal,
+                ai_avatar: aiAvatarVal === '__idb__' ? '' : aiAvatarVal,
                 updated_at: new Date().toISOString()
             };
             
@@ -8728,14 +9403,16 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                 
                 // 测试3: 插入或更新
                 log += '--- 步骤3: 写入测试 ---\n';
+                const testAvatarVal = localStorage.getItem('avatarUrl') || '';
+                const testAiAvatarVal = localStorage.getItem('aiAvatarUrl') || '';
                 const testSettings = {
                     energy_level: parseInt(localStorage.getItem('energyLevel') || '70'),
                     mood_index: parseInt(localStorage.getItem('moodIndex') || '2'),
                     user_name: localStorage.getItem('userName') || 'User',
                     ai_name: localStorage.getItem('aiName') || 'AI助手',
                     ai_persona: localStorage.getItem('aiPersona') || '默认人设',
-                    user_avatar: localStorage.getItem('avatarUrl') || '',
-                    ai_avatar: localStorage.getItem('aiAvatarUrl') || '',
+                    user_avatar: testAvatarVal === '__idb__' ? '' : testAvatarVal,
+                    ai_avatar: testAiAvatarVal === '__idb__' ? '' : testAiAvatarVal,
                     updated_at: new Date().toISOString()
                 };
                 log += `要写入的数据:\n${JSON.stringify(testSettings, null, 2).substring(0, 300)}\n\n`;
@@ -9619,10 +10296,631 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             // 初始化按钮事件
             initBgmButton();
             
+            // 初始化网易云模块
+            // 初始化网易云模块
+            await initNeteaseModule();
+            
             // 初始化音乐播放器
             initMusicPlayerState();
             updateMusicPlayer();
         }
+
+        // ==================== BGM 来源切换 & 网易云模块 ====================
+
+        // BGM来源: 'local' 或 'netease'
+        let bgmSource = localStorage.getItem('bgmSource') || 'local';
+        let neteasePlaylist = []; // [{name, artist, url, neteaseId, lyrics, cover}]
+        let neteaseCurrentIndex = 0;
+        let neteaseIsCaching = false;
+        let neteaseDB = null; // IndexedDB 实例
+
+        // 打开 IndexedDB
+        function openNeteaseDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open('NeteaseMusic', 1);
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains('playlist')) {
+                        db.createObjectStore('playlist', { keyPath: 'id' });
+                    }
+                };
+                request.onsuccess = (e) => {
+                    neteaseDB = e.target.result;
+                    resolve(neteaseDB);
+                };
+                request.onerror = (e) => {
+                    console.error('IndexedDB 打开失败:', e);
+                    reject(e);
+                };
+            });
+        }
+
+        // 从 IndexedDB 加载网易云歌曲列表
+        async function loadNeteasePlaylist() {
+            try {
+                if (!neteaseDB) await openNeteaseDB();
+                const tx = neteaseDB.transaction('playlist', 'readonly');
+                const store = tx.objectStore('playlist');
+                const request = store.get('songs');
+                const result = await new Promise((resolve, reject) => {
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+                if (result && Array.isArray(result.data)) {
+                    neteasePlaylist = result.data;
+                } else {
+                    neteasePlaylist = [];
+                }
+
+                // 一次性迁移：如果 localStorage 有旧数据则搬过来
+                const legacy = localStorage.getItem('neteasePlaylist');
+                if (legacy && neteasePlaylist.length === 0) {
+                    try {
+                        const old = JSON.parse(legacy);
+                        if (Array.isArray(old) && old.length > 0) {
+                            neteasePlaylist = old;
+                            await saveNeteasePlaylist();
+                            localStorage.removeItem('neteasePlaylist');
+                            console.log('[Netease] 已迁移 localStorage 数据到 IndexedDB');
+                        }
+                    } catch(e) {}
+                }
+            } catch(e) {
+                console.error('加载网易云列表失败:', e);
+                neteasePlaylist = [];
+            }
+        }
+
+        // 保存网易云歌曲列表到 IndexedDB
+        async function saveNeteasePlaylist() {
+            try {
+                if (!neteaseDB) await openNeteaseDB();
+                const tx = neteaseDB.transaction('playlist', 'readwrite');
+                const store = tx.objectStore('playlist');
+                store.put({ id: 'songs', data: neteasePlaylist });
+                await new Promise((resolve, reject) => {
+                    tx.oncomplete = resolve;
+                    tx.onerror = () => reject(tx.error);
+                });
+            } catch(e) {
+                console.error('保存网易云列表失败:', e);
+            }
+        }
+
+        // 切换来源
+        function toggleBgmSource() {
+            // 切换前先暂停当前播放
+            if (isBgmPlaying) pauseBgm();
+
+            bgmSource = bgmSource === 'local' ? 'netease' : 'local';
+            localStorage.setItem('bgmSource', bgmSource);
+            currentBgmIndex = 0;
+            updateBgmSourceUI();
+        }
+
+        // 更新来源UI
+        function updateBgmSourceUI() {
+            const track = document.getElementById('bgmSourceToggle');
+            const labelLocal = document.getElementById('labelLocal');
+            const labelNetease = document.getElementById('labelNetease');
+            const localPanel = document.getElementById('bgmLocalPanel');
+            const neteasePanel = document.getElementById('bgmNeteasePanel');
+
+            if (!track) return;
+
+            if (bgmSource === 'netease') {
+                track.classList.add('netease');
+                if (labelLocal) labelLocal.classList.remove('active');
+                if (labelNetease) labelNetease.classList.add('active');
+                if (localPanel) localPanel.style.display = 'none';
+                if (neteasePanel) neteasePanel.style.display = 'block';
+            } else {
+                track.classList.remove('netease');
+                if (labelLocal) labelLocal.classList.add('active');
+                if (labelNetease) labelNetease.classList.remove('active');
+                if (localPanel) localPanel.style.display = 'block';
+                if (neteasePanel) neteasePanel.style.display = 'none';
+            }
+            renderNeteaseList();
+            renderPlaylist();
+            updateMusicPlayer();
+        }
+
+        // 渲染网易云歌曲列表（设置页）
+        function renderNeteaseList() {
+            const container = document.getElementById('neteaseList');
+            if (!container) return;
+
+            if (neteasePlaylist.length === 0) {
+                container.innerHTML = '<div class="netease-empty">暂无歌曲<br>点击下方按钮添加</div>';
+                return;
+            }
+
+            container.innerHTML = neteasePlaylist.map((song, i) => `
+                <div class="netease-song-item ${i === neteaseCurrentIndex && bgmSource === 'netease' ? 'active' : ''}">
+                    <div class="netease-song-info" onclick="neteasePlayAt(${i})">
+                        <div class="netease-song-title">${song.name}</div>
+                        <div class="netease-song-artist">${song.artist || '未知'}</div>
+                    </div>
+                    <button class="netease-song-del" onclick="neteaseDeleteSong(${i})">×</button>
+                </div>
+            `).join('');
+        }
+
+        // ===== 覆写播放相关函数，使其感知来源 =====
+
+        // 覆写 getActiveBgmList：根据来源返回不同列表
+        const _origGetActiveBgmList = getActiveBgmList;
+        getActiveBgmList = function() {
+            if (bgmSource === 'netease') {
+                return neteasePlaylist.map(s => ({ name: s.name, url: s.url, artist: s.artist, neteaseId: s.neteaseId }));
+            }
+            return _origGetActiveBgmList();
+        };
+
+        // 覆写 playBgm：网易云模式下检测链接有效性
+        const _origPlayBgm = playBgm;
+        playBgm = async function() {
+            if (bgmSource !== 'netease') {
+                _origPlayBgm();
+                return;
+            }
+
+            const activeList = getActiveBgmList();
+            if (activeList.length === 0) {
+                showSyncStatus('暂无网易云歌曲，请先添加');
+                return;
+            }
+            if (currentBgmIndex < 0 || currentBgmIndex >= activeList.length) {
+                currentBgmIndex = 0;
+            }
+
+            const bgm = activeList[currentBgmIndex];
+            if (!bgm || !bgm.url) {
+                showSyncStatus('播放链接无效，尝试刷新...');
+                if (bgm && bgm.neteaseId) {
+                    const newUrl = await neteaseRefreshUrl(bgm.neteaseId);
+                    if (newUrl) {
+                        neteasePlaylist[currentBgmIndex].url = newUrl;
+                        saveNeteasePlaylist();
+                        bgm.url = newUrl;
+                    } else {
+                        showSyncStatus('获取播放链接失败');
+                        return;
+                    }
+                } else {
+                    return;
+                }
+            }
+
+            // 复用原始播放逻辑（先把bgmSource临时设为local让它走原逻辑）
+            // 不行，直接内联播放逻辑
+            if (bgmFadeRAF) { cancelAnimationFrame(bgmFadeRAF); bgmFadeRAF = null; }
+
+            if (!bgmAudio) {
+                bgmAudio = new Audio();
+                bgmAudio.crossOrigin = 'anonymous';
+                bgmAudio.preload = 'auto';
+                try {
+                    bgmAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    var source = bgmAudioCtx.createMediaElementSource(bgmAudio);
+                    bgmGainNode = bgmAudioCtx.createGain();
+                    bgmGainNode.gain.value = 0;
+                    source.connect(bgmGainNode);
+                    bgmGainNode.connect(bgmAudioCtx.destination);
+                } catch(e) {
+                    bgmAudioCtx = null;
+                    bgmGainNode = null;
+                }
+            }
+
+            if (bgmAudioCtx && bgmAudioCtx.state === 'suspended') {
+                bgmAudioCtx.resume().catch(function(){});
+            }
+
+            bgmAudio.pause();
+            bgmAudio.onended = null;
+            bgmSetGain(0);
+            bgmAudio.currentTime = 0;
+            bgmAudio.src = bgm.url;
+            bgmAudio.loop = (loopMode === 'one');
+
+            isBgmPlaying = true;
+            bgmIsPaused = false;
+            updateBgmButton();
+
+            var playPromise = bgmAudio.play();
+            if (playPromise !== undefined) {
+                playPromise.then(function() {
+                    fadeInBgm();
+                    showSyncStatus('正在播放: ' + bgm.name);
+                }).catch(function(e) {
+                    bgmAudio.oncanplay = function() {
+                        bgmAudio.oncanplay = null;
+                        bgmAudio.play().then(function() {
+                            fadeInBgm();
+                            showSyncStatus('正在播放: ' + bgm.name);
+                        }).catch(function() {
+                            isBgmPlaying = false;
+                            updateBgmButton();
+                            showSyncStatus('播放失败，请重试');
+                        });
+                    };
+                });
+            } else {
+                fadeInBgm();
+            }
+
+            bgmAudio.onended = function() { handleTrackEnd(); };
+            bgmAudio.onerror = function() {
+                // 网易云链接可能失效，尝试自动刷新
+                if (bgm.neteaseId) {
+                    showSyncStatus('链接失效，正在刷新...');
+                    neteaseRefreshUrl(bgm.neteaseId).then(function(newUrl) {
+                        if (newUrl) {
+                            neteasePlaylist[currentBgmIndex].url = newUrl;
+                            saveNeteasePlaylist();
+                            bgmAudio.src = newUrl;
+                            bgmAudio.play().then(function() { fadeInBgm(); }).catch(function(){});
+                        } else {
+                            showSyncStatus('链接刷新失败');
+                            isBgmPlaying = false;
+                            updateBgmButton();
+                        }
+                    });
+                } else {
+                    showSyncStatus('音频加载失败');
+                    isBgmPlaying = false;
+                    updateBgmButton();
+                }
+            };
+            bgmIsPaused = false;
+            renderNeteaseList();
+            renderPlaylist();
+        };
+
+        // 在指定位置播放网易云歌曲
+        function neteasePlayAt(index) {
+            if (bgmSource !== 'netease') {
+                bgmSource = 'netease';
+                localStorage.setItem('bgmSource', bgmSource);
+                updateBgmSourceUI();
+            }
+            currentBgmIndex = index;
+            playBgm();
+        }
+
+        // 删除网易云歌曲
+        function neteaseDeleteSong(index) {
+            if (index === currentBgmIndex && isBgmPlaying && bgmSource === 'netease') {
+                pauseBgm();
+            }
+            neteasePlaylist.splice(index, 1);
+            if (currentBgmIndex >= neteasePlaylist.length) currentBgmIndex = Math.max(0, neteasePlaylist.length - 1);
+            saveNeteasePlaylist();
+            renderNeteaseList();
+            renderPlaylist();
+        }
+
+        // ===== 网易云 API 工具函数 =====
+
+        function isNeteaseLink(url) {
+            return url.includes('music.163.com') || url.includes('163cn.tv') || url.includes('y.music.163.com');
+        }
+
+        function isPlaylistLink(url) {
+            return url.includes('playlist') || url.includes('playlist?id=');
+        }
+
+        function extractNeteaseId(link) {
+            const m1 = link.match(/id=(\d+)/);
+            if (m1) return m1[1];
+            const m2 = link.match(/song\/(\d+)/);
+            if (m2) return m2[1];
+            return null;
+        }
+
+        async function neteaseRefreshUrl(neteaseId) {
+            try {
+                const res = await fetch('https://wyapi-1.toubiec.cn/api/music/url', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: `music.163.com/song?id=${neteaseId}`, level: 'exhigh' })
+                });
+                if (!res.ok) return null;
+                const data = await res.json();
+                if (data.code !== 200) return null;
+                if (data.data && Array.isArray(data.data) && data.data[0]) {
+                    return data.data[0].url || null;
+                }
+                return null;
+            } catch(e) {
+                console.error('刷新链接失败:', e);
+                return null;
+            }
+        }
+
+        async function neteaseFetchSongInfo(link) {
+            // 获取详情
+            const detailRes = await fetch('https://wyapi-1.toubiec.cn/api/music/detail', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: link })
+            });
+            if (!detailRes.ok) throw new Error('获取歌曲信息失败');
+            const detailData = await detailRes.json();
+            if (detailData.code !== 200) throw new Error(detailData.msg || 'API错误');
+            const songInfo = detailData.data;
+
+            // 获取播放链接
+            const urlRes = await fetch('https://wyapi-1.toubiec.cn/api/music/url', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: link, level: 'exhigh' })
+            });
+            if (!urlRes.ok) throw new Error('获取播放链接失败');
+            const urlData = await urlRes.json();
+            if (urlData.code !== 200) throw new Error(urlData.msg || '获取链接失败');
+
+            let playUrl = '';
+            if (urlData.data && Array.isArray(urlData.data) && urlData.data[0]) {
+                playUrl = urlData.data[0].url || '';
+            }
+            if (!playUrl) throw new Error('无法获取播放链接');
+
+            // 获取歌词（可选）
+            let lyrics = '';
+            try {
+                const lrcRes = await fetch('https://wyapi-1.toubiec.cn/api/music/lyric', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: link })
+                });
+                if (lrcRes.ok) {
+                    const lrcData = await lrcRes.json();
+                    if (lrcData.code === 200) lyrics = lrcData.data.lrc || '';
+                }
+            } catch(e) {}
+
+            return {
+                name: songInfo.name || '未知歌曲',
+                artist: songInfo.singer || '未知',
+                url: playUrl,
+                lyrics: lyrics,
+                cover: songInfo.picimg || '',
+                neteaseId: extractNeteaseId(link)
+            };
+        }
+
+        async function neteaseFetchPlaylist(link) {
+            const res = await fetch('https://wyapi-1.toubiec.cn/api/music/playlist', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: link })
+            });
+            if (!res.ok) throw new Error('获取歌单失败');
+            const data = await res.json();
+            if (data.code !== 200) throw new Error(data.msg || 'API错误');
+            return data.data;
+        }
+
+        // ===== 网易云弹窗 =====
+
+        function neteaseShowModal(title, placeholder, onConfirm) {
+            const overlay = document.createElement('div');
+            overlay.className = 'netease-modal-overlay';
+            overlay.innerHTML = `
+                <div class="netease-modal">
+                    <div class="netease-modal-header">${title}</div>
+                    <div class="netease-modal-body">
+                        <textarea class="netease-modal-input" placeholder="${placeholder}" rows="3"></textarea>
+                        <div class="netease-modal-btns">
+                            <button class="btn-cancel">取消</button>
+                            <button class="btn-confirm">确定</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+
+            const input = overlay.querySelector('.netease-modal-input');
+            input.focus();
+
+            overlay.querySelector('.btn-confirm').onclick = () => {
+                const val = input.value.trim();
+                overlay.remove();
+                if (val && onConfirm) onConfirm(val);
+            };
+            overlay.querySelector('.btn-cancel').onclick = () => overlay.remove();
+            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+        }
+
+        function neteaseShowConfirm(title, message, onConfirm) {
+            const overlay = document.createElement('div');
+            overlay.className = 'netease-modal-overlay';
+            overlay.innerHTML = `
+                <div class="netease-modal">
+                    <div class="netease-modal-header">${title}</div>
+                    <div class="netease-modal-body">
+                        <div style="font-size:14px;line-height:1.8;margin-bottom:4px;">${message}</div>
+                        <div class="netease-modal-btns">
+                            <button class="btn-cancel">取消</button>
+                            <button class="btn-confirm">确定</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            overlay.querySelector('.btn-confirm').onclick = () => { overlay.remove(); if (onConfirm) onConfirm(); };
+            overlay.querySelector('.btn-cancel').onclick = () => overlay.remove();
+            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+        }
+
+        function neteaseShowProgress(current, total, songName) {
+            let el = document.getElementById('neteaseProgressOverlay');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'neteaseProgressOverlay';
+                el.className = 'netease-progress-overlay';
+                el.innerHTML = `
+                    <div class="netease-progress-box">
+                        <div class="netease-progress-title">正在导入</div>
+                        <div class="netease-progress-song"></div>
+                        <div class="netease-progress-bar-bg"><div class="netease-progress-bar-fill"></div></div>
+                        <div class="netease-progress-text">0 / 0</div>
+                    </div>
+                `;
+                document.body.appendChild(el);
+            }
+            const pct = total > 0 ? (current / total * 100) : 0;
+            const bar = el.querySelector('.netease-progress-bar-fill');
+            const text = el.querySelector('.netease-progress-text');
+            const song = el.querySelector('.netease-progress-song');
+            if (bar) bar.style.width = pct + '%';
+            if (text) text.textContent = `${current} / ${total}`;
+            if (song) song.textContent = songName || '';
+        }
+
+        function neteaseHideProgress() {
+            const el = document.getElementById('neteaseProgressOverlay');
+            if (el) el.remove();
+        }
+
+        // ===== 添加单曲 =====
+        function neteaseAddSingle() {
+            neteaseShowModal(
+                '添加单曲',
+                '请输入网易云歌曲链接\n• music.163.com/song?id=xxx\n• 163cn.tv/xxx（短链接）',
+                async (input) => {
+                    if (!isNeteaseLink(input)) {
+                        showSyncStatus('请输入有效的网易云链接');
+                        return;
+                    }
+                    showSyncStatus('正在解析...');
+                    try {
+                        const info = await neteaseFetchSongInfo(input);
+                        neteasePlaylist.push(info);
+                        saveNeteasePlaylist();
+                        renderNeteaseList();
+                        renderPlaylist();
+                        showSyncStatus('已添加: ' + info.name);
+                    } catch(e) {
+                        showSyncStatus('添加失败: ' + e.message);
+                    }
+                }
+            );
+        }
+
+        // ===== 导入歌单 =====
+        function neteaseAddPlaylist() {
+            neteaseShowModal(
+                '导入歌单',
+                '请输入网易云歌单链接\n• music.163.com/playlist?id=xxx\n• 163cn.tv/xxx（短链接）',
+                async (input) => {
+                    if (!isPlaylistLink(input) && !isNeteaseLink(input)) {
+                        showSyncStatus('请输入有效的歌单链接');
+                        return;
+                    }
+                    showSyncStatus('正在解析歌单...');
+                    try {
+                        const playlist = await neteaseFetchPlaylist(input);
+                        if (!playlist.tracks || playlist.tracks.length === 0) {
+                            showSyncStatus('歌单为空');
+                            return;
+                        }
+                        neteaseShowConfirm(
+                            '确认导入',
+                            `<b>歌单：</b>${playlist.name}<br><b>创建者：</b>${playlist.creator}<br><b>歌曲数：</b>${playlist.tracks.length} 首<br><br>是否全部添加？`,
+                            () => neteaseImportTracks(playlist)
+                        );
+                    } catch(e) {
+                        showSyncStatus('歌单解析失败: ' + e.message);
+                    }
+                }
+            );
+        }
+
+        async function neteaseImportTracks(playlist) {
+            neteaseShowProgress(0, playlist.tracks.length, '');
+            let added = 0, failed = 0;
+
+            for (let i = 0; i < playlist.tracks.length; i++) {
+                const track = playlist.tracks[i];
+                const songLink = `music.163.com/song?id=${track.id}`;
+                neteaseShowProgress(i + 1, playlist.tracks.length, track.name);
+
+                try {
+                    const info = await neteaseFetchSongInfo(songLink);
+                    neteasePlaylist.push({
+                        name: track.name,
+                        artist: track.artists || info.artist,
+                        url: info.url,
+                        lyrics: info.lyrics,
+                        cover: track.picUrl || info.cover,
+                        neteaseId: track.id.toString()
+                    });
+                    added++;
+                } catch(e) {
+                    failed++;
+                    console.error(`导入失败: ${track.name}`, e);
+                }
+                await new Promise(r => setTimeout(r, 200));
+            }
+
+            neteaseHideProgress();
+            saveNeteasePlaylist();
+            renderNeteaseList();
+            renderPlaylist();
+
+            if (added > 0) {
+                showSyncStatus(`导入完成！成功 ${added} 首${failed > 0 ? '，失败 ' + failed + ' 首' : ''}`);
+            } else {
+                showSyncStatus('导入失败');
+            }
+        }
+
+        // ===== 一键刷新链接 =====
+        async function neteaseCacheAll() {
+            if (neteaseIsCaching) {
+                showSyncStatus('正在刷新中...');
+                return;
+            }
+            const songs = neteasePlaylist.filter(s => s.neteaseId);
+            if (songs.length === 0) {
+                showSyncStatus('没有需要刷新的歌曲');
+                return;
+            }
+
+            neteaseIsCaching = true;
+            neteaseShowProgress(0, songs.length, '');
+            let ok = 0, fail = 0, idx = 0;
+
+            for (let i = 0; i < neteasePlaylist.length; i++) {
+                const s = neteasePlaylist[i];
+                if (!s.neteaseId) continue;
+                idx++;
+                neteaseShowProgress(idx, songs.length, s.name);
+                try {
+                    const newUrl = await neteaseRefreshUrl(s.neteaseId);
+                    if (newUrl) { s.url = newUrl; ok++; } else { fail++; }
+                } catch(e) { fail++; }
+                await new Promise(r => setTimeout(r, 300));
+            }
+
+            neteaseIsCaching = false;
+            neteaseHideProgress();
+            saveNeteasePlaylist();
+            showSyncStatus(`刷新完成！成功 ${ok}${fail > 0 ? '，失败 ' + fail : ''}`);
+        }
+
+        // 初始化网易云模块
+        async function initNeteaseModule() {
+            await openNeteaseDB();
+            await loadNeteasePlaylist();
+            updateBgmSourceUI();
+        }
+
+        // ==================== 网易云模块结束 ====================
 
         // ==================== 音乐播放器控制 ====================
         
@@ -9696,7 +10994,10 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             // 更新标题
             const activeList = getActiveBgmList();
             const currentBgm = activeList.length > 0 && currentBgmIndex >= 0 && currentBgmIndex < activeList.length ? activeList[currentBgmIndex] : null;
-            const titleText = currentBgm ? currentBgm.name : '未选择音乐';
+            let titleText = '未选择音乐';
+            if (currentBgm) {
+                titleText = currentBgm.artist ? (currentBgm.name + ' - ' + currentBgm.artist) : currentBgm.name;
+            }
             if (musicTitle) musicTitle.textContent = titleText;
         }
 
