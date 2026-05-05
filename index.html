@@ -3674,6 +3674,15 @@
                         <button class="netease-action-btn secondary" onclick="neteaseAddPlaylist()">📋 导入歌单</button>
                         <button class="netease-action-btn secondary" onclick="neteaseCacheAll()">⟳ 一键刷新链接</button>
                     </div>
+                    <!-- 代理地址 -->
+                    <div style="padding:4px 20px 12px;">
+                        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Vercel 代理地址</div>
+                        <div style="display:flex;gap:6px;">
+                            <input type="text" id="neteaseProxyInput" placeholder="https://xxx.vercel.app" 
+                                style="flex:1;padding:8px;border:1px solid var(--border-color);border-radius:8px;font-size:12px;background:var(--bg-secondary);color:var(--text-primary);">
+                            <button onclick="saveNeteaseProxy()" style="padding:8px 12px;border:none;border-radius:8px;background:var(--accent);color:white;font-size:12px;cursor:pointer;">保存</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -10619,12 +10628,25 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             return null;
         }
 
-        // ===== 网易云第三方API（wyapi.toubiec.cn）=====
-        var NETEASE_API = 'https://wyapi.toubiec.cn';
+        // ===== 网易云第三方API（通过Vercel代理）=====
+        // 部署后填入你的Vercel地址
+        function getNeteaseProxy() {
+            return localStorage.getItem('neteaseProxy') || '';
+        }
+
+        function neteaseApi(endpoint) {
+            var proxy = getNeteaseProxy();
+            if (proxy) {
+                var base = proxy.endsWith('/') ? proxy.slice(0, -1) : proxy;
+                return base + '/api/proxy' + endpoint;
+            }
+            // 无代理时直连（会被CORS拦，但留着兜底）
+            return 'https://wyapi.toubiec.cn' + endpoint;
+        }
 
         async function neteaseRefreshUrl(neteaseId) {
             try {
-                var res = await fetch(NETEASE_API + '/api/music/url', {
+                var res = await fetch(neteaseApi('/api/music/url'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id: 'music.163.com/song?id=' + neteaseId, level: 'exhigh' })
@@ -10644,7 +10666,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
 
         async function neteaseFetchSongInfo(link) {
             // 获取详情
-            var detailRes = await fetch(NETEASE_API + '/api/music/detail', {
+            var detailRes = await fetch(neteaseApi('/api/music/detail'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: link })
@@ -10655,7 +10677,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             var songInfo = detailData.data;
 
             // 获取播放链接
-            var urlRes = await fetch(NETEASE_API + '/api/music/url', {
+            var urlRes = await fetch(neteaseApi('/api/music/url'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: link, level: 'exhigh' })
@@ -10673,7 +10695,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             // 获取歌词
             var lyrics = '';
             try {
-                var lrcRes = await fetch(NETEASE_API + '/api/music/lyric', {
+                var lrcRes = await fetch(neteaseApi('/api/music/lyric'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ id: link })
@@ -10695,7 +10717,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         }
 
         async function neteaseFetchPlaylist(link) {
-            var res = await fetch(NETEASE_API + '/api/music/playlist', {
+            var res = await fetch(neteaseApi('/api/music/playlist'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ id: link })
@@ -10916,10 +10938,24 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             showSyncStatus('刷新完成！成功 ' + ok + (fail > 0 ? '，失败 ' + fail : ''));
         }
 
+        // 保存代理地址
+        function saveNeteaseProxy() {
+            var val = document.getElementById('neteaseProxyInput').value.trim();
+            if (val) {
+                localStorage.setItem('neteaseProxy', val);
+            } else {
+                localStorage.removeItem('neteaseProxy');
+            }
+            showSyncStatus('代理地址已保存');
+        }
+
         // 初始化网易云模块
         async function initNeteaseModule() {
             await openNeteaseDB();
             await loadNeteasePlaylist();
+            // 回填代理地址
+            var proxyInput = document.getElementById('neteaseProxyInput');
+            if (proxyInput) proxyInput.value = getNeteaseProxy();
             updateBgmSourceUI();
         }
 
