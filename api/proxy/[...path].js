@@ -1,6 +1,5 @@
 module.exports = async function(req, res) {
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || 'null');
+  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -10,8 +9,6 @@ module.exports = async function(req, res) {
   }
 
   var API = 'https://wyapi.toubiec.cn';
-
-  // 从URL路径提取API路径: /api/proxy/api/music/detail -> /api/music/detail
   var path = req.url.replace(/^\/api\/proxy/, '') || '/';
 
   if (path === '/') {
@@ -22,23 +19,25 @@ module.exports = async function(req, res) {
   var target = API + path;
 
   try {
-    var fetch = (await import('node-fetch')).default;
-    var options = { method: req.method, headers: { 'Content-Type': 'application/json' } };
+    var options = {
+      method: req.method,
+      headers: { 'Content-Type': 'application/json' }
+    };
 
     if (req.method === 'POST') {
-      // 读取body
-      var body = '';
       if (typeof req.body === 'object') {
-        body = JSON.stringify(req.body);
+        options.body = JSON.stringify(req.body);
       } else if (typeof req.body === 'string') {
-        body = req.body;
+        options.body = req.body;
       }
-      options.body = body;
     }
 
     var response = await fetch(target, options);
     var text = await response.text();
-    res.status(response.status).setHeader('Content-Type', 'application/json').end(text);
+
+    res.status(response.status);
+    res.setHeader('Content-Type', 'application/json');
+    res.end(text);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
