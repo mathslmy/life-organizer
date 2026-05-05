@@ -10821,26 +10821,26 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                     <div class="netease-modal-body">
                         <p style="font-size:12px;color:var(--text-muted);line-height:1.7;margin-bottom:12px;">
                             PWA 需要代理才能请求网易云API。<br>
-                            推荐使用 <b>Cloudflare Worker</b>（免费）：
+                            推荐使用 <b>Supabase Edge Function</b>（免费）：
                         </p>
                         <div style="background:var(--bg-secondary);border-radius:10px;padding:12px;margin-bottom:12px;font-size:12px;line-height:1.7;">
                             <b>部署步骤：</b><br>
-                            1. 打开 <span style="color:var(--accent);text-decoration:underline;" onclick="window.open('https://dash.cloudflare.com')">dash.cloudflare.com</span><br>
-                            2. Workers & Pages → 创建 Worker<br>
-                            3. 粘贴代理代码 → 部署<br>
-                            4. 把地址填到下方输入框<br><br>
-                            <b>代理代码获取：</b>找作者要 worker.js
+                            1. 安装 CLI: npm i -g supabase<br>
+                            2. supabase login<br>
+                            3. 创建 supabase/functions/music-proxy/index.ts<br>
+                            4. supabase functions deploy music-proxy --no-verify-jwt<br>
+                            5. 把地址填到下方输入框
                         </div>
                         <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">
                             填入 Worker 地址（<b>推荐路径模式</b>）：
                         </div>
                         <input type="text" class="netease-modal-input" id="corsProxyInput" 
                             value="${current}" 
-                            placeholder="https://your-worker.xxx.workers.dev" 
+                            placeholder="https://xxx.supabase.co/functions/v1/music-proxy" 
                             style="height:auto;min-height:40px;font-size:13px;">
                         <div style="font-size:11px;color:var(--text-muted);margin-top:4px;line-height:1.5;">
-                            路径模式：<code style="background:var(--bg-tertiary);padding:1px 4px;border-radius:3px;">https://xxx.workers.dev</code><br>
-                            URL参数模式：<code style="background:var(--bg-tertiary);padding:1px 4px;border-radius:3px;">https://xxx.workers.dev/?url={url}</code>
+                            路径模式：<code style="background:var(--bg-tertiary);padding:1px 4px;border-radius:3px;">https://xxx.supabase.co/functions/v1/music-proxy</code><br>
+                            URL参数模式：<code style="background:var(--bg-tertiary);padding:1px 4px;border-radius:3px;">https://xxx/?url={url}</code>
                         </div>
                         <div class="netease-modal-btns" style="margin-top:12px;">
                             <button class="btn-cancel">取消</button>
