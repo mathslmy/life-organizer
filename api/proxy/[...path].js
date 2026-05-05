@@ -1,44 +1,44 @@
-module.exports = async function(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+export const config = { runtime: 'edge' };
 
+export default async function(req) {
   if (req.method === 'OPTIONS') {
-    res.status(204).end();
-    return;
+    return new Response(null, { status: 204, headers: cors(req) });
   }
 
-  var API = 'https://wyapi.toubiec.cn';
-  var path = req.url.replace(/^\/api\/proxy/, '') || '/';
+  var url = new URL(req.url);
+  var path = url.pathname.replace(/^\/api\/proxy/, '') || '/';
 
   if (path === '/') {
-    res.status(200).json({ status: 'ok' });
-    return;
+    return new Response('{"status":"ok"}', { headers: { ...cors(req), 'Content-Type': 'application/json' } });
   }
 
-  var target = API + path;
+  var target = 'https://wyapi.toubiec.cn' + path;
 
   try {
-    var options = {
-      method: req.method,
-      headers: { 'Content-Type': 'application/json' }
-    };
-
+    var opts = { method: req.method, headers: { 'Content-Type': 'application/json' } };
     if (req.method === 'POST') {
-      if (typeof req.body === 'object') {
-        options.body = JSON.stringify(req.body);
-      } else if (typeof req.body === 'string') {
-        options.body = req.body;
-      }
+      opts.body = await req.text();
     }
 
-    var response = await fetch(target, options);
-    var text = await response.text();
+    var resp = await fetch(target, opts);
+    var text = await resp.text();
 
-    res.status(response.status);
-    res.setHeader('Content-Type', 'application/json');
-    res.end(text);
+    return new Response(text, {
+      status: resp.status,
+      headers: { ...cors(req), 'Content-Type': 'application/json' }
+    });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    return new Response(JSON.stringify({ error: e.message }), {
+      status: 500,
+      headers: { ...cors(req), 'Content-Type': 'application/json' }
+    });
   }
-};
+}
+
+function cors(req) {
+  return {
+    'Access-Control-Allow-Origin': req.headers.get('Origin') || 'null',
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type'
+  };
+}
