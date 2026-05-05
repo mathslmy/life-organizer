@@ -10874,29 +10874,47 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                 resultEl.textContent = '测试中...';
                 resultEl.style.color = 'var(--text-muted)';
 
-                // 临时应用输入框中的代理
-                const tmpProxy = document.getElementById('corsProxyInput').value.trim();
-                const oldProxy = localStorage.getItem('corsProxy');
-                if (tmpProxy) localStorage.setItem('corsProxy', tmpProxy);
-                else localStorage.removeItem('corsProxy');
+                const proxy = document.getElementById('corsProxyInput').value.trim();
+                if (!proxy) {
+                    resultEl.textContent = '❌ 请先填入代理地址';
+                    resultEl.style.color = '#e74c3c';
+                    return;
+                }
 
                 try {
-                    const data = await neteaseApiPost('/api/music/detail', { id: 'music.163.com/song?id=33894312' });
-                    if (data && data.code === 200) {
-                        resultEl.textContent = '✅ 连接成功！歌曲：' + (data.data.name || '未知');
-                        resultEl.style.color = '#22c55e';
-                    } else {
-                        resultEl.textContent = '⚠️ API返回异常: ' + (data.msg || JSON.stringify(data).substring(0, 60));
+                    // 直接请求 Worker，不走降级链
+                    var base = proxy.endsWith('/') ? proxy.slice(0, -1) : proxy;
+                    var testUrl = base + '/api/music/detail';
+                    
+                    var res = await fetch(testUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ id: 'music.163.com/song?id=33894312' })
+                    });
+                    
+                    var text = await res.text();
+                    resultEl.textContent = '响应: ' + text.substring(0, 80);
+                    
+                    try {
+                        var data = JSON.parse(text);
+                        if (data.code === 200 && data.data) {
+                            resultEl.textContent = '✅ 连接成功！歌曲：' + (data.data.name || '未知');
+                            resultEl.style.color = '#22c55e';
+                        } else if (data.error) {
+                            resultEl.textContent = '⚠️ Worker错误: ' + data.error;
+                            resultEl.style.color = '#f59e0b';
+                        } else {
+                            resultEl.textContent = '⚠️ API返回: ' + text.substring(0, 80);
+                            resultEl.style.color = '#f59e0b';
+                        }
+                    } catch(pe) {
+                        resultEl.textContent = '⚠️ 非JSON响应: ' + text.substring(0, 80);
                         resultEl.style.color = '#f59e0b';
                     }
                 } catch(e) {
-                    resultEl.textContent = '❌ ' + e.message;
+                    resultEl.textContent = '❌ 请求失败: ' + e.message;
                     resultEl.style.color = '#e74c3c';
                 }
-
-                // 恢复原设置（用户没点保存时不改变实际设置）
-                if (oldProxy) localStorage.setItem('corsProxy', oldProxy);
-                else localStorage.removeItem('corsProxy');
             };
         }
 
