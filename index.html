@@ -10624,11 +10624,10 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         // 网易云第三方API不支持跨域，PWA需通过代理中转
         const NETEASE_API_BASE = 'https://wyapi-1.toubiec.cn';
 
-        // 可选代理列表（按优先级尝试）
+        // 公共代理备选（不稳定，仅兜底）
         const CORS_PROXIES = [
-            (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
             (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
-            (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+            (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
         ];
 
         // 用户自定义代理（设置页可配置）
@@ -10638,64 +10637,70 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
 
         // 通过代理发送POST请求
         async function neteaseApiPost(endpoint, body) {
-            const url = `${NETEASE_API_BASE}${endpoint}`;
-            const options = {
+            const directUrl = `${NETEASE_API_BASE}${endpoint}`;
+            const jsonBody = JSON.stringify(body);
+            const postOpts = {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
+                body: jsonBody
             };
 
             // 带超时的 fetch
-            function fetchWithTimeout(fetchUrl, fetchOpts, ms) {
-                const controller = new AbortController();
-                const timer = setTimeout(() => controller.abort(), ms);
-                return fetch(fetchUrl, { ...fetchOpts, signal: controller.signal })
-                    .finally(() => clearTimeout(timer));
+            function fetchT(u, opts, ms) {
+                const ctrl = new AbortController();
+                const t = setTimeout(() => ctrl.abort(), ms);
+                return fetch(u, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(t));
             }
 
-            // 1. 先尝试直连（3秒超时，某些环境不受CORS限制）
-            try {
-                const directRes = await fetchWithTimeout(url, options, 3000);
-                if (directRes.ok) return await directRes.json();
-            } catch(e) {
-                console.log('[Netease] 直连失败，尝试代理:', e.message);
-            }
-
-            // 2. 如果有自定义代理，优先使用
+            // 1. 优先自定义代理（用户配置的 Worker）
             const custom = getCustomProxy();
             if (custom) {
                 try {
-                    const proxyUrl = custom.includes('{url}')
-                        ? custom.replace('{url}', encodeURIComponent(url))
-                        : `${custom}${encodeURIComponent(url)}`;
-                    const res = await fetchWithTimeout(proxyUrl, options, 8000);
+                    let proxyUrl;
+                    if (custom.includes('{url}')) {
+                        // URL参数模式: https://worker.dev/?url={url}
+                        proxyUrl = custom.replace('{url}', encodeURIComponent(directUrl));
+                    } else {
+                        // 路径模式: https://worker.dev/api/music/detail（推荐）
+                        const base = custom.endsWith('/') ? custom.slice(0, -1) : custom;
+                        proxyUrl = base + endpoint;
+                    }
+                    const res = await fetchT(proxyUrl, postOpts, 8000);
                     if (res.ok) return await res.json();
                 } catch(e) {
                     console.log('[Netease] 自定义代理失败:', e.message);
                 }
             }
 
-            // 3. 逐个尝试公共代理
+            // 2. 尝试直连（3秒超时，部分环境可用）
+            try {
+                const res = await fetchT(directUrl, postOpts, 3000);
+                if (res.ok) return await res.json();
+            } catch(e) {
+                console.log('[Netease] 直连失败:', e.message);
+            }
+
+            // 3. 逐个尝试公共代理（兜底）
             for (let i = 0; i < CORS_PROXIES.length; i++) {
                 try {
-                    const proxyUrl = CORS_PROXIES[i](url);
-                    const res = await fetchWithTimeout(proxyUrl, options, 8000);
+                    const proxyUrl = CORS_PROXIES[i](directUrl);
+                    const res = await fetchT(proxyUrl, postOpts, 10000);
                     if (res.ok) {
                         const text = await res.text();
                         try {
                             const data = JSON.parse(text);
-                            console.log(`[Netease] 代理${i}成功`);
+                            console.log(`[Netease] 公共代理${i}成功`);
                             return data;
                         } catch(e) {
-                            console.log(`[Netease] 代理${i}返回非JSON`);
+                            console.log(`[Netease] 公共代理${i}返回非JSON`);
                         }
                     }
                 } catch(e) {
-                    console.log(`[Netease] 代理${i}失败:`, e.message);
+                    console.log(`[Netease] 公共代理${i}失败:`, e.message);
                 }
             }
 
-            throw new Error('网络请求失败（CORS），请点击代理设置配置');
+            throw new Error('网络请求失败，请配置 CORS 代理（推荐 Cloudflare Worker）');
         }
 
         async function neteaseRefreshUrl(neteaseId) {
@@ -10811,21 +10816,33 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             const overlay = document.createElement('div');
             overlay.className = 'netease-modal-overlay';
             overlay.innerHTML = `
-                <div class="netease-modal">
+                <div class="netease-modal" style="max-width:400px;">
                     <div class="netease-modal-header">⚙ CORS 代理设置</div>
                     <div class="netease-modal-body">
-                        <p style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:10px;">
-                            PWA 无法直接请求网易云API（跨域限制）。<br>
-                            程序会自动尝试公共代理，如果全部失败，可自行部署代理并填入地址。<br><br>
-                            格式示例：<br>
-                            <code style="background:var(--bg-tertiary);padding:2px 6px;border-radius:4px;font-size:11px;">https://your-proxy.com/?url={url}</code><br>
-                            <span style="opacity:0.7;">{url} 会被替换为实际请求地址</span>
+                        <p style="font-size:12px;color:var(--text-muted);line-height:1.7;margin-bottom:12px;">
+                            PWA 需要代理才能请求网易云API。<br>
+                            推荐使用 <b>Cloudflare Worker</b>（免费）：
                         </p>
+                        <div style="background:var(--bg-secondary);border-radius:10px;padding:12px;margin-bottom:12px;font-size:12px;line-height:1.7;">
+                            <b>部署步骤：</b><br>
+                            1. 打开 <span style="color:var(--accent);text-decoration:underline;" onclick="window.open('https://dash.cloudflare.com')">dash.cloudflare.com</span><br>
+                            2. Workers & Pages → 创建 Worker<br>
+                            3. 粘贴代理代码 → 部署<br>
+                            4. 把地址填到下方输入框<br><br>
+                            <b>代理代码获取：</b>找作者要 worker.js
+                        </div>
+                        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">
+                            填入 Worker 地址（<b>推荐路径模式</b>）：
+                        </div>
                         <input type="text" class="netease-modal-input" id="corsProxyInput" 
                             value="${current}" 
-                            placeholder="留空使用内置公共代理" 
-                            style="height:auto;min-height:40px;">
-                        <div class="netease-modal-btns">
+                            placeholder="https://your-worker.xxx.workers.dev" 
+                            style="height:auto;min-height:40px;font-size:13px;">
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;line-height:1.5;">
+                            路径模式：<code style="background:var(--bg-tertiary);padding:1px 4px;border-radius:3px;">https://xxx.workers.dev</code><br>
+                            URL参数模式：<code style="background:var(--bg-tertiary);padding:1px 4px;border-radius:3px;">https://xxx.workers.dev/?url={url}</code>
+                        </div>
+                        <div class="netease-modal-btns" style="margin-top:12px;">
                             <button class="btn-cancel">取消</button>
                             <button class="btn-confirm">保存</button>
                         </div>
@@ -10857,14 +10874,13 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                 resultEl.textContent = '测试中...';
                 resultEl.style.color = 'var(--text-muted)';
 
-                // 先临时设置代理
+                // 临时应用输入框中的代理
                 const tmpProxy = document.getElementById('corsProxyInput').value.trim();
                 const oldProxy = localStorage.getItem('corsProxy');
                 if (tmpProxy) localStorage.setItem('corsProxy', tmpProxy);
                 else localStorage.removeItem('corsProxy');
 
                 try {
-                    // 用一个简单请求测试
                     const data = await neteaseApiPost('/api/music/detail', { id: 'music.163.com/song?id=33894312' });
                     if (data && data.code === 200) {
                         resultEl.textContent = '✅ 连接成功！歌曲：' + (data.data.name || '未知');
@@ -10874,11 +10890,11 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                         resultEl.style.color = '#f59e0b';
                     }
                 } catch(e) {
-                    resultEl.textContent = '❌ 连接失败: ' + e.message;
+                    resultEl.textContent = '❌ ' + e.message;
                     resultEl.style.color = '#e74c3c';
                 }
 
-                // 恢复原代理设置
+                // 恢复原设置（用户没点保存时不改变实际设置）
                 if (oldProxy) localStorage.setItem('corsProxy', oldProxy);
                 else localStorage.removeItem('corsProxy');
             };
