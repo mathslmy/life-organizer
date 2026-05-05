@@ -3673,7 +3673,6 @@
                         <button class="netease-action-btn primary" onclick="neteaseAddSingle()">＋ 添加单曲</button>
                         <button class="netease-action-btn secondary" onclick="neteaseAddPlaylist()">📋 导入歌单</button>
                         <button class="netease-action-btn secondary" onclick="neteaseCacheAll()">⟳ 一键刷新链接</button>
-                        <button class="netease-action-btn secondary" onclick="openCorsProxySettings()" style="font-size:12px;opacity:0.7;">⚙ CORS 代理设置</button>
                     </div>
                 </div>
             </div>
@@ -10620,94 +10619,18 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             return null;
         }
 
-        // ===== CORS 代理 =====
-        // 网易云第三方API不支持跨域，PWA需通过代理中转
-        const NETEASE_API_BASE = 'https://wyapi.toubiec.cn';
-
-        // 公共代理备选（不稳定，仅兜底）
-        const CORS_PROXIES = [
-            (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
-            (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
-        ];
-
-        // 用户自定义代理（设置页可配置）
-        function getCustomProxy() {
-            return localStorage.getItem('corsProxy') || '';
-        }
-
-        // 通过代理发送POST请求
-        async function neteaseApiPost(endpoint, body) {
-            const directUrl = `${NETEASE_API_BASE}${endpoint}`;
-            const jsonBody = JSON.stringify(body);
-            const postOpts = {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: jsonBody
-            };
-
-            // 带超时的 fetch
-            function fetchT(u, opts, ms) {
-                const ctrl = new AbortController();
-                const t = setTimeout(() => ctrl.abort(), ms);
-                return fetch(u, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(t));
-            }
-
-            // 1. 优先自定义代理（用户配置的 Worker）
-            const custom = getCustomProxy();
-            if (custom) {
-                try {
-                    let proxyUrl;
-                    if (custom.includes('{url}')) {
-                        // URL参数模式: https://worker.dev/?url={url}
-                        proxyUrl = custom.replace('{url}', encodeURIComponent(directUrl));
-                    } else {
-                        // 路径模式: https://worker.dev/api/music/detail（推荐）
-                        const base = custom.endsWith('/') ? custom.slice(0, -1) : custom;
-                        proxyUrl = base + endpoint;
-                    }
-                    const res = await fetchT(proxyUrl, postOpts, 8000);
-                    if (res.ok) return await res.json();
-                } catch(e) {
-                    console.log('[Netease] 自定义代理失败:', e.message);
-                }
-            }
-
-            // 2. 尝试直连（3秒超时，部分环境可用）
-            try {
-                const res = await fetchT(directUrl, postOpts, 3000);
-                if (res.ok) return await res.json();
-            } catch(e) {
-                console.log('[Netease] 直连失败:', e.message);
-            }
-
-            // 3. 逐个尝试公共代理（兜底）
-            for (let i = 0; i < CORS_PROXIES.length; i++) {
-                try {
-                    const proxyUrl = CORS_PROXIES[i](directUrl);
-                    const res = await fetchT(proxyUrl, postOpts, 10000);
-                    if (res.ok) {
-                        const text = await res.text();
-                        try {
-                            const data = JSON.parse(text);
-                            console.log(`[Netease] 公共代理${i}成功`);
-                            return data;
-                        } catch(e) {
-                            console.log(`[Netease] 公共代理${i}返回非JSON`);
-                        }
-                    }
-                } catch(e) {
-                    console.log(`[Netease] 公共代理${i}失败:`, e.message);
-                }
-            }
-
-            throw new Error('网络请求失败，请配置 CORS 代理（推荐 Cloudflare Worker）');
-        }
+        // ===== 网易云第三方API（wyapi.toubiec.cn）=====
+        var NETEASE_API = 'https://wyapi.toubiec.cn';
 
         async function neteaseRefreshUrl(neteaseId) {
             try {
-                const data = await neteaseApiPost('/api/music/url', {
-                    id: `music.163.com/song?id=${neteaseId}`, level: 'exhigh'
+                var res = await fetch(NETEASE_API + '/api/music/url', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: 'music.163.com/song?id=' + neteaseId, level: 'exhigh' })
                 });
+                if (!res.ok) return null;
+                var data = await res.json();
                 if (data.code !== 200) return null;
                 if (data.data && Array.isArray(data.data) && data.data[0]) {
                     return data.data[0].url || null;
@@ -10721,25 +10644,44 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
 
         async function neteaseFetchSongInfo(link) {
             // 获取详情
-            const detailData = await neteaseApiPost('/api/music/detail', { id: link });
+            var detailRes = await fetch(NETEASE_API + '/api/music/detail', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: link })
+            });
+            if (!detailRes.ok) throw new Error('获取歌曲信息失败');
+            var detailData = await detailRes.json();
             if (detailData.code !== 200) throw new Error(detailData.msg || 'API错误');
-            const songInfo = detailData.data;
+            var songInfo = detailData.data;
 
             // 获取播放链接
-            const urlData = await neteaseApiPost('/api/music/url', { id: link, level: 'exhigh' });
+            var urlRes = await fetch(NETEASE_API + '/api/music/url', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: link, level: 'exhigh' })
+            });
+            if (!urlRes.ok) throw new Error('获取播放链接失败');
+            var urlData = await urlRes.json();
             if (urlData.code !== 200) throw new Error(urlData.msg || '获取链接失败');
 
-            let playUrl = '';
+            var playUrl = '';
             if (urlData.data && Array.isArray(urlData.data) && urlData.data[0]) {
                 playUrl = urlData.data[0].url || '';
             }
             if (!playUrl) throw new Error('无法获取播放链接');
 
-            // 获取歌词（可选）
-            let lyrics = '';
+            // 获取歌词
+            var lyrics = '';
             try {
-                const lrcData = await neteaseApiPost('/api/music/lyric', { id: link });
-                if (lrcData.code === 200) lyrics = lrcData.data.lrc || '';
+                var lrcRes = await fetch(NETEASE_API + '/api/music/lyric', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: link })
+                });
+                if (lrcRes.ok) {
+                    var lrcData = await lrcRes.json();
+                    if (lrcData.code === 200) lyrics = lrcData.data.lrc || '';
+                }
             } catch(e) {}
 
             return {
@@ -10753,7 +10695,13 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
         }
 
         async function neteaseFetchPlaylist(link) {
-            const data = await neteaseApiPost('/api/music/playlist', { id: link });
+            var res = await fetch(NETEASE_API + '/api/music/playlist', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: link })
+            });
+            if (!res.ok) throw new Error('获取歌单失败');
+            var data = await res.json();
             if (data.code !== 200) throw new Error(data.msg || 'API错误');
             return data.data;
         }
@@ -10810,113 +10758,6 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
         }
 
-        // CORS代理设置弹窗
-        function openCorsProxySettings() {
-            const current = getCustomProxy();
-            const overlay = document.createElement('div');
-            overlay.className = 'netease-modal-overlay';
-            overlay.innerHTML = `
-                <div class="netease-modal" style="max-width:400px;">
-                    <div class="netease-modal-header">⚙ CORS 代理设置</div>
-                    <div class="netease-modal-body">
-                        <p style="font-size:12px;color:var(--text-muted);line-height:1.7;margin-bottom:12px;">
-                            PWA 需要代理才能请求网易云API。<br>
-                            推荐使用 <b>Supabase Edge Function</b>（免费）：
-                        </p>
-                        <div style="background:var(--bg-secondary);border-radius:10px;padding:12px;margin-bottom:12px;font-size:12px;line-height:1.7;">
-                            <b>部署步骤：</b><br>
-                            1. 安装 CLI: npm i -g supabase<br>
-                            2. supabase login<br>
-                            3. 创建 supabase/functions/music-proxy/index.ts<br>
-                            4. supabase functions deploy music-proxy --no-verify-jwt<br>
-                            5. 把地址填到下方输入框
-                        </div>
-                        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">
-                            填入 Worker 地址（<b>推荐路径模式</b>）：
-                        </div>
-                        <input type="text" class="netease-modal-input" id="corsProxyInput" 
-                            value="${current}" 
-                            placeholder="https://xxx.supabase.co/functions/v1/music-proxy" 
-                            style="height:auto;min-height:40px;font-size:13px;">
-                        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;line-height:1.5;">
-                            路径模式：<code style="background:var(--bg-tertiary);padding:1px 4px;border-radius:3px;">https://xxx.supabase.co/functions/v1/music-proxy</code><br>
-                            URL参数模式：<code style="background:var(--bg-tertiary);padding:1px 4px;border-radius:3px;">https://xxx/?url={url}</code>
-                        </div>
-                        <div class="netease-modal-btns" style="margin-top:12px;">
-                            <button class="btn-cancel">取消</button>
-                            <button class="btn-confirm">保存</button>
-                        </div>
-                        <button id="corsTestBtn" style="width:100%;margin-top:8px;padding:8px;border:1px solid var(--border-color);border-radius:8px;background:var(--bg-secondary);cursor:pointer;font-size:12px;color:var(--text-secondary);">
-                            🧪 测试连接
-                        </button>
-                        <div id="corsTestResult" style="font-size:12px;color:var(--text-muted);margin-top:6px;min-height:20px;"></div>
-                    </div>
-                </div>
-            `;
-            document.body.appendChild(overlay);
-
-            overlay.querySelector('.btn-confirm').onclick = () => {
-                const val = document.getElementById('corsProxyInput').value.trim();
-                if (val) {
-                    localStorage.setItem('corsProxy', val);
-                } else {
-                    localStorage.removeItem('corsProxy');
-                }
-                overlay.remove();
-                showSyncStatus('代理设置已保存');
-            };
-            overlay.querySelector('.btn-cancel').onclick = () => overlay.remove();
-            overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
-
-            // 测试连接
-            overlay.querySelector('#corsTestBtn').onclick = async () => {
-                const resultEl = document.getElementById('corsTestResult');
-                resultEl.textContent = '测试中...';
-                resultEl.style.color = 'var(--text-muted)';
-
-                const proxy = document.getElementById('corsProxyInput').value.trim();
-                if (!proxy) {
-                    resultEl.textContent = '❌ 请先填入代理地址';
-                    resultEl.style.color = '#e74c3c';
-                    return;
-                }
-
-                try {
-                    // 直接请求 Worker，不走降级链
-                    var base = proxy.endsWith('/') ? proxy.slice(0, -1) : proxy;
-                    var testUrl = base + '/api/music/detail';
-                    
-                    var res = await fetch(testUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ id: 'music.163.com/song?id=33894312' })
-                    });
-                    
-                    var text = await res.text();
-                    resultEl.textContent = '响应: ' + text.substring(0, 80);
-                    
-                    try {
-                        var data = JSON.parse(text);
-                        if (data.code === 200 && data.data) {
-                            resultEl.textContent = '✅ 连接成功！歌曲：' + (data.data.name || '未知');
-                            resultEl.style.color = '#22c55e';
-                        } else if (data.error) {
-                            resultEl.textContent = '⚠️ Worker错误: ' + data.error;
-                            resultEl.style.color = '#f59e0b';
-                        } else {
-                            resultEl.textContent = '⚠️ API返回: ' + text.substring(0, 80);
-                            resultEl.style.color = '#f59e0b';
-                        }
-                    } catch(pe) {
-                        resultEl.textContent = '⚠️ 非JSON响应: ' + text.substring(0, 80);
-                        resultEl.style.color = '#f59e0b';
-                    }
-                } catch(e) {
-                    resultEl.textContent = '❌ 请求失败: ' + e.message;
-                    resultEl.style.color = '#e74c3c';
-                }
-            };
-        }
 
         function neteaseShowProgress(current, total, songName) {
             let el = document.getElementById('neteaseProgressOverlay');
@@ -11004,29 +10845,29 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
 
         async function neteaseImportTracks(playlist) {
             neteaseShowProgress(0, playlist.tracks.length, '');
-            let added = 0, failed = 0;
+            var added = 0, failed = 0;
 
-            for (let i = 0; i < playlist.tracks.length; i++) {
-                const track = playlist.tracks[i];
-                const songLink = `music.163.com/song?id=${track.id}`;
+            for (var i = 0; i < playlist.tracks.length; i++) {
+                var track = playlist.tracks[i];
+                var songLink = 'music.163.com/song?id=' + track.id;
                 neteaseShowProgress(i + 1, playlist.tracks.length, track.name);
 
                 try {
-                    const info = await neteaseFetchSongInfo(songLink);
+                    var info = await neteaseFetchSongInfo(songLink);
                     neteasePlaylist.push({
                         name: track.name,
                         artist: track.artists || info.artist,
                         url: info.url,
-                        lyrics: info.lyrics,
+                        lyrics: info.lyrics || '',
                         cover: track.picUrl || info.cover,
                         neteaseId: track.id.toString()
                     });
                     added++;
                 } catch(e) {
                     failed++;
-                    console.error(`导入失败: ${track.name}`, e);
+                    console.error('导入失败: ' + track.name, e);
                 }
-                await new Promise(r => setTimeout(r, 200));
+                await new Promise(function(r) { setTimeout(r, 200); });
             }
 
             neteaseHideProgress();
@@ -11035,7 +10876,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
             renderPlaylist();
 
             if (added > 0) {
-                showSyncStatus(`导入完成！成功 ${added} 首${failed > 0 ? '，失败 ' + failed + ' 首' : ''}`);
+                showSyncStatus('导入完成！成功 ' + added + ' 首' + (failed > 0 ? '，失败 ' + failed + ' 首' : ''));
             } else {
                 showSyncStatus('导入失败');
             }
@@ -11047,7 +10888,7 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
                 showSyncStatus('正在刷新中...');
                 return;
             }
-            const songs = neteasePlaylist.filter(s => s.neteaseId);
+            var songs = neteasePlaylist.filter(function(s) { return s.neteaseId; });
             if (songs.length === 0) {
                 showSyncStatus('没有需要刷新的歌曲');
                 return;
@@ -11055,24 +10896,24 @@ ${allTasks.length > 0 ? JSON.stringify(allTasks) : '无'}
 
             neteaseIsCaching = true;
             neteaseShowProgress(0, songs.length, '');
-            let ok = 0, fail = 0, idx = 0;
+            var ok = 0, fail = 0, idx = 0;
 
-            for (let i = 0; i < neteasePlaylist.length; i++) {
-                const s = neteasePlaylist[i];
+            for (var i = 0; i < neteasePlaylist.length; i++) {
+                var s = neteasePlaylist[i];
                 if (!s.neteaseId) continue;
                 idx++;
                 neteaseShowProgress(idx, songs.length, s.name);
                 try {
-                    const newUrl = await neteaseRefreshUrl(s.neteaseId);
+                    var newUrl = await neteaseRefreshUrl(s.neteaseId);
                     if (newUrl) { s.url = newUrl; ok++; } else { fail++; }
                 } catch(e) { fail++; }
-                await new Promise(r => setTimeout(r, 300));
+                await new Promise(function(r) { setTimeout(r, 300); });
             }
 
             neteaseIsCaching = false;
             neteaseHideProgress();
             saveNeteasePlaylist();
-            showSyncStatus(`刷新完成！成功 ${ok}${fail > 0 ? '，失败 ' + fail : ''}`);
+            showSyncStatus('刷新完成！成功 ' + ok + (fail > 0 ? '，失败 ' + fail : ''));
         }
 
         // 初始化网易云模块
